@@ -1,6 +1,6 @@
-# Design directions
+# Apace design directions
 
-Two original directions for the interface. Choose one, or ask for changes, before step 12 of `docs/plan/phase-1.md` builds the shell. Nothing before step 12 depends on the choice.
+Two original directions for Apace's interface. One of them, adjusted if needed, is chosen before step 12 of `docs/plan/phase-1.md` builds the shell. Nothing before step 12 depends on the choice.
 
 ## What both directions share
 
@@ -441,4 +441,4 @@ The left segment of the status bar is the indicator. Enter or click opens the de
 | Fonts | Three files | One multi-axis file |
 | Motion | Short slides that show where things went | None. A one-shot tint marks what moved |
 
-If you want my pick, it's Workbench. Its density and on-screen timings make the speed promise visible everywhere, and its type system carries straight into Phase 2's tables. Chartwork is the better reading experience.
+The recommendation is Workbench. Its density and on-screen timings make the speed promise visible everywhere, and its type system carries straight into Phase 2's tables. Chartwork is the better reading experience.

@@ -1,12 +1,12 @@
-# Phase 1 plan: the editor and pages
+# Apace Phase 1 plan: the editor and pages
 
-Status: Draft, awaiting approval. Once you approve, this line changes to "Approved" and `/step` can start.
+Status: Approved on 2026-11-12. The design direction is chosen before step 12.
 
-Branch: `phase-1`, created from `main` after you commit the setup files.
+Branch: `phase-1`, from `main`.
 
 ## Goal
 
-A working, demoable local-first app:
+Apace as a working, demoable local-first app:
 
 - Nested pages in a sidebar tree with drag, favorites and trash.
 - A block editor with every Phase 1 block type, a slash menu, Markdown shortcuts, block handles, multi-block selection and indent.
@@ -24,6 +24,7 @@ All of these live in `bench/budgets.json` with phase 1. A latency passes when it
 | `cold-start` | < 1,500 ms p95 | Navigation start → first painted frame of the interactive shell | 10 reloads | Step 7 |
 | `page-open.typical` | < 100 ms p95 | Click or Enter on a sidebar row → painted content | 60 pages, one open each | Step 10 |
 | `page-open.large` | < 100 ms p95 | The same, for the 3,000-block page | 20 opens | Step 10 |
+| `page-editable.large` | < 200 ms p95 | The same click or Enter → end of the painted frame in which the editor holds the whole 3,000-block page and handles input itself | 20 opens | Step 10 |
 | `keystroke.typical` | < 16 ms p95 | Key event → end of the frame that paints it, idle wait excluded | 200 keys | Step 10 |
 | `keystroke.large` | < 16 ms p95 | The same, at the top, middle and end of the 3,000-block page | 300 keys | Step 10 |
 | `scroll` | p95 ≤ one refresh period (16.7 ms at 60 Hz), worst view | Synthesized scroll gesture; frame intervals snapped to whole periods | 5 s per view | Step 10 (page); 13 (sidebar); 14 (trash); 18 (backlinks); 20 (command bar) |
@@ -39,9 +40,12 @@ ADR 0010 holds the full method.
 - **Percentiles** are nearest-rank. Each metric's warm-up samples are dropped and counted in the report.
 - **Keystroke.** The span runs from the key event's `timeStamp` to the end of the frame that paints the change, where a MessageChannel message posted from `requestAnimationFrame` marks the end. From the key handler until that frame, the probe keeps a chain of MessageChannel messages going. A gap in the chain means other work ran, such as React, timers or the Yjs binding, and that work counts. The chain spinning on its own is idle time and doesn't count. If the typed change isn't in the DOM by that frame, the probe follows it to the frame that has it. Without cross-origin isolation the timer resolution is 0.1 ms, which is fine for a 16 ms budget.
 - **Page open and quick search.** App code calls `performance.measure` from the triggering event's `timeStamp` to the end of the painted frame. Each page-open sample is that page's first open since app caches were dropped. A search sample ends when the results for that exact query are painted. A sample that never completes fails the run; samples are never dropped.
+- **Page editable.** It starts at the same event and ends at the first painted frame in which the editor holds the whole page and a key would reach it directly, not a replay queue. When the editor paints the page itself, this equals page open.
 - **Scrolling.** `Input.synthesizeScrollGesture` runs through each declared view. The intervals between `requestAnimationFrame` timestamps are snapped to whole refresh periods, and the worst view's p95 is the metric.
-- **Cold start.** From navigation start to the painted frame where the shell is interactive, as defined in open question 5, over 10 reloads after one unmeasured load.
-- **Runs.** The Playwright library drives Chromium in new headless mode (channel `chromium`) with a persistent profile in `bench/.profile`. The viewport is set by open question 14, and the CPU throttle comes from `budgets.json` through CDP. Scenarios that edit a page restore their fixture first, so runs stay comparable.
+- **Cold start.** From navigation start to the painted frame where the shell is interactive: the sidebar is painted from projections, the store accepts writes, the command bar shortcut is live, and the restored page's content is painted. The bench restores the 3,000-block page, as the worst case, and measures 10 reloads after one unmeasured load.
+- **Runs.** The Playwright library drives Chromium in new headless mode (channel `chromium`) with a persistent profile in `bench/.profile`. The viewport is 1536 × 864 at a device scale factor of 1.25, and the CPU throttle comes from `budgets.json` through CDP. Scenarios that edit a page restore their fixture first, so runs stay comparable.
+
+Every bench run measures all declared metrics. A step's **Activates** line names the metrics it adds and the ones it's most likely to move.
 
 ## Steps
 
@@ -69,7 +73,7 @@ ADR 0010 holds the full method.
 - [ ] 22. Installable app and offline start
 - [ ] 23. Benchmarks page, README and the Phase 1 gate
 
-Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon as the scaffold can measure it. Step 12 onward needs your design direction.
+Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon as the scaffold can measure it. Step 12 onward needs the chosen design direction.
 
 ## Step details
 
@@ -83,9 +87,10 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
   - `.node-version`.
   - `tsconfig.base.json` for TypeScript 6.0.3: `strict`, `erasableSyntaxOnly`, `verbatimModuleSyntax`, `allowImportingTsExtensions`, `noEmit`.
   - `biome.json`, a root Vitest config with one project per package, and a full `.gitignore`.
-- `apps/web`: Vite 8, React 19.2 and `@vitejs/plugin-react` 6, rendering an unstyled shell. A `bench` build mode exists from the start. It compiles in `src/bench/`, which step 7 fills.
+- `apps/web`: Vite 8, React 19.3 and `@vitejs/plugin-react` 6, rendering an unstyled shell. A `bench` build mode exists from the start. It compiles in `src/bench/`, which step 7 fills.
 - `packages/model` and `packages/seed` export `src/index.ts` directly. Vite and Node both read the TypeScript source, so there's no package build step.
-- `bench/` is a workspace package. `bench/smoke.ts` imports `@app/seed` to prove that Node 24 runs TypeScript across workspace links without a build.
+- `bench/` is a workspace package. `bench/smoke.ts` imports `@apace/seed` to prove that Node 24 runs TypeScript across workspace links without a build.
+- The packages are `@apace/web`, `@apace/model`, `@apace/seed` and `@apace/bench`. The display name, Apace, lives in one `APP_NAME` constant.
 - The Playwright test runner with retries at 0, and a small static server for production builds that sends no COOP or COEP headers.
 - The `dev`, `build`, `check`, `test` and `e2e` scripts.
 - `docs/dependencies.md`, with one sentence per dependency.
@@ -108,14 +113,14 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 
 - `rpc.ts`, the typed RPC. Calls carry ids and transfer lists, errors cross with their name, message and stack, and the worker emits typed events.
 - `worker.ts`:
-  - Loads `@sqlite.org/sqlite-wasm` 3.53.0-build1 and installs opfs-sahpool.
+  - Loads `@sqlite.org/sqlite-wasm` 3.54.1-build1 and installs opfs-sahpool.
   - Opens `workspace.db` and migrates it by `PRAGMA user_version`. Schema v1 holds `docs` (snapshot and snapshot sequence) and `updates` (doc, sequence and bytes).
 - The API:
   - `status` events, `takeOver()` and `close()`.
   - `appendUpdates(docId, updates)`.
   - `loadDoc(docId)`, which returns the merged state as a transferred buffer.
   - `compact(docId)`.
-- The `workspace-db` lock, exactly as decided:
+- The `workspace-db` lock:
   - The worker holds it for its whole life.
   - A second tab waits 1.5 s, reports `open-elsewhere` and offers "Use it here", which steals the lock.
   - The old worker notices the lost lock, closes the database, releases its access handles and reports `moved-away`.
@@ -196,7 +201,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - The block spec, as data:
   - Block types: `title`, `paragraph`, `heading` (levels 1 to 3), `bulleted`, `numbered`, `todo`, `toggle`, `quote`, `callout`, `divider`, `code`, `image` and `embed`.
   - An inline `mention`, and marks for bold, italic, underline, strike, code and link.
-  - Every block has an `id` and an `indent` (the flat model, open question 8).
+  - Every block has an `id` and an `indent`. Blocks form a flat list, and nesting comes from indentation.
   - A page doc is `title block+`. Icon, cover and full width live in the doc's `meta` map.
 - The ProseMirror schema, built from that spec. It runs in Node and in the worker.
 - Block JSON ⇄ Y.Doc through `@tiptap/y-tiptap`, the binding that TipTap's Collaboration extension uses. Seed, worker and editor share one encoding.
@@ -226,7 +231,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
   - Mention hubs, one of them with at least 300 backlinks.
   - 12 favorites and 150 trashed pages. Some pages have icons and covers.
   - Images are small generated local assets. Embeds point at a local fixture URL, so nothing touches the network.
-- The databases, generated and tested now but stored from Phase 2 (open question 13):
+- The databases, generated and tested now but stored from Phase 2, whose spike decides their Yjs layout:
   - Tasks: 50,000 rows with the 15 properties (Title, Status, Priority, Tags, Owner, Due, Estimate, Spent, Done, Link, Contact, the Project relation, the Blocked by self-relation, the Open blockers rollup and the Health formula).
   - Projects: 500 rows.
   - Rollup and formula values come from a plain reference implementation, ready for Phase 2's differential tests.
@@ -280,7 +285,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **Builds**
 
 - `bench/budgets.json` holds:
-  - Every budget from the brief, each with its phase, feature, statistic, sample count and warm-up count.
+  - Every product budget, each with its phase, feature, statistic, sample count and warm-up count.
   - The CI CPU throttle and the refresh period.
 - `apps/web/src/perf/`, used by app code in every build:
   - `measureToPaint(name, startTime, detail)`: `requestAnimationFrame`, then a MessageChannel message, then `performance.measure`.
@@ -300,7 +305,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
   - Runs main and the branch interleaved, three times each, and compares medians.
   - A metric fails when it is more than 10% worse and worse by more than main's own spread.
   - Metrics new on the branch are listed as new. If the base has no harness, it says "no baseline" and compares nothing.
-  - `--base <ref>` follows open question 3.
+  - `--base <ref>` picks another base. Each step compares its uncommitted work with the last commit, and CI compares with the previous commit until main has the harness.
 - `bench/gate.ts` (`pnpm gate`) runs check, test, e2e, bench and bench:ab. It then fails if any metric with phase ≤ N is missing or over budget, where N comes from the `phase-N` branch name.
 - A budget ratchet test in `pnpm test` compares `bench/budgets.json` with main's copy. It fails if a budget rises, a metric disappears, a sample count drops, a warm-up count grows, or the CI throttle goes down.
 
@@ -351,7 +356,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **Builds**
 
 - `.github/workflows/ci.yml` runs on every push and on manual dispatch:
-  - `ubuntu-24.04`, pinned.
+  - `ubuntu-24.04`, pinned. The repository is public, so this is GitHub's standard 4-vCPU runner.
   - Node 24, and pnpm from `packageManager`.
   - The pnpm store and Chromium are cached, with full history for the worktree.
 - It runs `pnpm check`, `pnpm test`, `pnpm e2e`, `pnpm bench` and `pnpm bench:ab`. On a phase branch whose plan has every step ticked, it runs `pnpm gate` instead.
@@ -364,11 +369,11 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 
 **ADR:** 0012 The GitHub runner stands in for the mid-range laptop, and the throttle only goes up.
 
-**Done when:** you push the branch and the run passes. I can read the run with `gh` if it's signed in. The step stays unticked until you confirm.
+**Done when:** the workflow passes on GitHub for the pushed branch. The step stays unticked until that run is green.
 
 ### 10. Spike: the 3,000-block page in TipTap with Yjs
 
-**Question:** can TipTap 3 with Yjs open the seeded 3,000-block page with content painted in under 100 ms p95, and keep keystrokes under 16 ms p95, at the CI throttle? If so, which rendering strategy gets there?
+**Question:** can TipTap 3 with Yjs open the seeded 3,000-block page with content painted in under 100 ms p95, make it editable in under 200 ms p95, and keep keystrokes under 16 ms p95, at the CI throttle? If so, which rendering strategy gets there?
 
 **Setup**
 
@@ -378,7 +383,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - A temporary unstyled list of fixture pages serves as the click target until the sidebar lands in step 13.
 - Measured locally at the calibrated throttle and confirmed on CI.
 
-**Variants**, measured in order. The spike stops at the first variant that meets both budgets with headroom: p95 open at or under 80 ms and keystroke at or under 12 ms. That leaves room for steps 15 to 18.
+**Variants**, measured in order. The spike stops at the first variant that meets all three budgets with headroom: p95 open at or under 80 ms, editable at or under 160 ms, and keystroke at or under 12 ms. That leaves room for steps 15 to 18.
 
 - A. A new TipTap editor per open, with Collaboration bound to a fresh Y.Doc.
 - B. A, plus `content-visibility: auto` with remembered intrinsic sizes on top-level blocks.
@@ -390,7 +395,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 
 **For each variant**
 
-- A breakdown of worker read and merge, transfer, `applyUpdate`, Y.Doc to ProseMirror, view render, style and layout, and paint.
+- A breakdown of worker read and merge, transfer, `applyUpdate`, Y.Doc to ProseMirror, view render, style and layout, and paint, plus the time until the page is editable.
 - Keystrokes at the top, middle and end of the page: characters, Enter, and Backspace joining two blocks.
 - A Chrome trace of the winning variant.
 
@@ -399,13 +404,13 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - e2e: open, type and reload, with the content intact.
 - For variant D only: a click that lands before mount still puts the caret where it landed.
 
-**Activates:** `page-open.large`, `page-open.typical`, `keystroke.large`, `keystroke.typical`, and `scroll` on the 3,000-block page.
+**Activates:** `page-open.large`, `page-editable.large`, `page-open.typical`, `keystroke.large`, `keystroke.typical`, and `scroll` on the 3,000-block page.
 
 **Output:** `docs/spikes/large-page.md`, with every variant's numbers. Losing variants are deleted.
 
 **ADR:** 0013 Rendering long pages.
 
-**Done when:** a variant meets both budgets with that headroom at the CI throttle. If none does, I stop with the numbers and options: a windowed Yjs binding that mounts only the visible blocks, sectioned long pages, or a lighter schema.
+**Done when:** a variant meets all three budgets with that headroom at the CI throttle. If none does, the spike stops with the numbers and the options: a windowed Yjs binding that mounts only the visible blocks, sectioned long pages, or a lighter schema.
 
 ### 11. Editor foundation
 
@@ -427,13 +432,13 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - fast-check: random editor transactions leave the worker's projection equal to a full rebuild.
 - e2e: type and reload, with the text persisted; undo and redo; switching pages mid-typing; edits made just before a reload survive.
 
-**Activates:** re-measures `keystroke.*` and `page-open.*`. `cold-start` now includes restoring the last page.
+**Activates:** re-measures `keystroke.*`, `page-open.*` and `page-editable.large`. `cold-start` now includes restoring the last page.
 
 **Done when:** tests pass and every active metric is within budget.
 
 ### 12. Design tokens and app shell
 
-This step needs your design direction.
+This step needs the chosen design direction.
 
 **Builds**
 
@@ -582,7 +587,7 @@ This step needs your design direction.
 - `@` opens a page picker backed by the worker's search.
 - The mention node shows the target's live title and icon from the projection. When the target is in the trash or deleted, it says so in words.
 - The links projection, and a virtualized "Linked from N pages" section with context.
-- `/page` creates a child page and inserts a mention to it (open question 9).
+- `/page` creates a child page and inserts a mention to it. The hierarchy itself lives only in the tree.
 
 **Tests**
 
@@ -675,6 +680,7 @@ This step needs your design direction.
 - The in-app benchmarks page: the latest gate report, bundled at build time, plus this session's own measurements.
 - The README: the problem, an architecture diagram, how to run it locally, and the latest numbers.
 - A two-minute Phase 1 demo script.
+- A review of TypeScript 7 and Vitest 5: what moving would change and what it would cost, for a decision at the gate.
 
 **Tests**
 
@@ -682,7 +688,7 @@ This step needs your design direction.
 
 **Activates:** the full Phase 1 gate.
 
-**Done when:** `pnpm gate` passes locally and on CI. `/gate` then gives you the merge commands.
+**Done when:** `pnpm gate` passes locally and on CI, and `phase-1` is ready to merge into `main`.
 
 ## ADRs this phase writes
 
@@ -711,28 +717,29 @@ The remaining decisions get their ADRs in the phases that implement them: rows t
 
 ## Dependencies this phase adds
 
-Every version is exact. Each package gets its sentence in `docs/dependencies.md` when it lands, and I ask before adding anything not listed here.
+Every version is exact: the newest in each chosen line on 2026-11-12. pnpm itself is pinned at 11.4.0 through `packageManager`, so CI runs the same pnpm as local development. Each package gets its sentence in `docs/dependencies.md` when it lands, and anything not listed here needs approval before it's added.
 
 | Package | Version | Step |
 |---|---|---|
-| `vite` | 8.3.6 | 1 |
-| `@vitejs/plugin-react` | 6.2.1 | 1 |
-| `react`, `react-dom` | 19.2.9 | 1 |
+| `vite` | 8.3.8 | 1 |
+| `@vitejs/plugin-react` | 6.3.0 | 1 |
+| `react`, `react-dom` | 19.3.1 | 1 |
 | `typescript` | 6.0.3 | 1 |
-| `@types/react`, `@types/react-dom`, `@types/node` | Latest matching each runtime | 1 |
+| `@types/react`, `@types/react-dom` | 19.3.0 | 1 |
+| `@types/node` | 24.19.2 | 1 |
 | `vitest` | 4.1.12 | 1 |
-| `@playwright/test`, `playwright` | 1.63.0 | 1 |
-| `@biomejs/biome` | 2.6.6 | 1 |
-| `@sqlite.org/sqlite-wasm` | 3.53.0-build1 | 2 |
+| `@playwright/test`, `playwright` | 1.65.0 | 1 |
+| `@biomejs/biome` | 2.6.7 | 1 |
+| `@sqlite.org/sqlite-wasm` | 3.54.1-build1 | 2 |
 | `yjs` | 13.6.33 | 2 |
 | `fast-check` | 4.10.2 | 2 |
-| `@tiptap/pm`, `@tiptap/y-tiptap` | 3.33.0, 3.2.0 | 4 |
-| `@tiptap/core`, `@tiptap/extension-collaboration` | 3.33.0 | 10 |
+| `@tiptap/pm`, `@tiptap/y-tiptap` | 3.33.1, 3.3.0 | 4 |
+| `@tiptap/core`, `@tiptap/extension-collaboration` | 3.33.1 | 10 |
 | The chosen direction's `@fontsource-variable/*` packages | 5.3.0 | 12 |
 | `@axe-core/playwright` | 4.14.0 | 12 |
 | `@tanstack/react-virtual` | 3.14.26 | 13 |
 | `lowlight` | 3.3.0 | 15 |
-| `@tiptap/suggestion` | 3.33.0 | 16 |
+| `@tiptap/suggestion` | 3.33.1 | 16 |
 
 Several pieces are written in-house rather than added as packages: fractional order keys, the PRNG, the static server, the service worker, IndexedDB access and the icons. Each is small and easy to test, so a package wouldn't earn its place.
 
@@ -746,28 +753,32 @@ Several pieces are written in-house rather than added as packages: fractional or
 6. **Screen readers with a virtualized tree.** Rows that aren't in the DOM need correct set sizes and positions. Step 13 checks this with axe and by hand with VoiceOver.
 7. **Short FTS5 prefix queries scale with the vocabulary.** Prefix indexes bound them for now, and the Phase 2 gate re-measures with 50,000 more pages.
 
-## Open questions, with recommended answers
+## Decisions for this phase
 
-1. **Which design direction?** It's needed before step 12. *Recommendation:* Workbench, for the reasons at the end of `docs/design/directions.md`.
-2. **What does the phase gate require?** *Recommendation:* every metric with phase ≤ N, so Phase 1's budgets stay enforced in later phases.
-3. **What does `bench:ab` compare against during Phase 1?** Main only gets the harness when Phase 1 merges, so there is no baseline on main all phase. *Recommendation:* add `bench:ab --base <ref>`, defaulting to main.
-   - `/step` compares each step's uncommitted work with the last commit, in every phase.
+These were settled on 2026-11-12. Each ADR records the reasoning when its decision is implemented.
+
+1. **Name.** The app is Apace. Packages use the `@apace/*` scope, and the display name lives in one `APP_NAME` constant.
+2. **Gate scope.** The gate for phase N requires every metric with phase ≤ N, so Phase 1's budgets stay enforced in later phases.
+3. **A/B baseline.** `bench:ab --base <ref>` defaults to main.
+   - Each step compares its uncommitted work with the last commit, in every phase.
    - CI compares with main once main has the harness, and with the previous commit until then.
    - The gate compares with main, and reports "no baseline" for Phase 1 only.
-4. **What counts as "shows content" on the 3,000-block page?** *Recommendation:* the title and the first viewport of real blocks are painted, even if a static first paint (variant D) supplies them. Also add a gated `page-editable.large` budget of under 200 ms p95, so a fast first paint can't hide a slow editor. That would be a new budget, so it's your call.
-5. **What is the "interactive shell" for cold start?** *Recommendation:* the sidebar is painted from projections, the store accepts writes, the command bar shortcut is live, and the restored page's content is painted. The bench restores the 3,000-block page, as the worst case.
-6. **Which runner, and what throttle?** *Recommendation:* make the repository public, so CI gets the standard 4-vCPU Linux runner. Pin it to `ubuntu-24.04` and start the throttle at 1× as the floor. Local runs on your Mac use a multiplier calibrated against the runner's calibration workload; they're reported but never gate. If the repository will be private, its standard runner has 2 vCPUs, so tell me, since the numbers shift.
-7. **Four things sit outside the brief's Phase 1 list but shape it.** They are the command bar with quick search, split view (pages only), installable offline start, and the benchmarks page. *Recommendation:* all four in Phase 1. Each is cheap now and expensive to retrofit, and the command bar puts the quick-search budget under test early.
-8. **Nested or flat blocks?** *Recommendation:* flat top-level blocks with an `indent` attribute.
-   - Indent and outdent become attribute writes, so concurrent edits are never lost to a subtree move. Yjs has no move operation.
-   - Each block is one row.
-   - Diffs on a 3,000-block page stay cheap.
-   - What it gives up: children are implied by indentation, so a toggle hides the deeper-indented blocks after it. Callouts and quotes hold one block of text rather than nested blocks.
-9. **Do sub-pages appear inside page content?** *Recommendation:* no. The hierarchy lives only in the tree, a page lists its sub-pages from the tree, and `/page` creates a child and inserts a mention to it. That leaves one source of truth, with no page blocks to keep in step with the tree.
-10. **Which state is personal?** *Recommendation:* favorites go in a per-user doc, since they become personal once Phase 3 adds members. Toggle open state and sidebar expansion stay on the device and never sync.
-11. **What happens to images and embeds before a server exists?** *Recommendation:* images are stored locally by content hash, in OPFS files, or in IndexedDB in compatibility mode, and they upload in Phase 3. Embeds are limited to an allowlist (YouTube, Vimeo, Loom, Figma, CodePen and Google Maps) in sandboxed iframes. Everything else becomes a link card.
-12. **Which highlighter?** *Recommendation:* lowlight, which runs synchronously per block, with common languages bundled and the rest loaded on demand. Shiki looks better, but it's heavier and asynchronous.
-13. **Does Phase 1 store the 50,000-row database?** *Recommendation:* no. Phase 1 generates and tests the data, and storing it waits for Phase 2's spike, which decides its Yjs layout. Phase 2's gate reruns every Phase 1 metric with the full dataset.
-14. **What viewport does the bench use?** *Recommendation:* 1536 × 864 at a device scale factor of 1.25, a common 15-inch laptop setup.
-15. **Should we stay on the decided versions?** Newer releases are out: TypeScript 7.0.2, Vitest 5.1.0, Playwright 1.65.0, React 19.3.1 and sqlite-wasm 3.54.1-build1. *Recommendation:* keep the decided lines at their latest patches for Phase 1: TypeScript 6.0.3, Vitest 4.1.12, Playwright 1.63.0, React 19.2.9, and sqlite-wasm at exactly 3.53.0-build1. Revisit between phases.
-16. **What is the app called?** *Recommendation:* workspace packages use the neutral `@app/*` scope, and the name lives in one `APP_NAME` constant. Naming it later then touches one line plus the manifest.
+4. **Editable, not just painted.** "Shows content" means the title and the first viewport of real blocks are painted, even when a static first paint supplies them. `page-editable.large` adds a gated budget of under 200 ms p95 for the 3,000-block page to become editable, so a fast first paint can't hide a slow editor.
+5. **Cold start.** The interactive shell means the sidebar is painted from projections, the store accepts writes, the command bar shortcut is live, and the restored page's content is painted. The bench restores the 3,000-block page, as the worst case.
+6. **Runner and throttle.** The repository is public, so CI runs on GitHub's standard 4-vCPU Linux runner, pinned to `ubuntu-24.04`. The throttle starts at 1× as the floor. Local runs use a multiplier calibrated against the runner; they're reported and never gate.
+7. **Phase 1 scope.** Phase 1 also ships the command bar with quick search, split view for pages, installable offline start, and the benchmarks page. Each is cheap now and expensive to retrofit.
+8. **Flat blocks.** Page content is a flat list of blocks with an indent level.
+   - Indent and outdent are attribute writes, so concurrent edits are never lost to a subtree move. Yjs has no move operation.
+   - Each block is one row, and diffs on a 3,000-block page stay cheap.
+   - What it gives up: children are implied by indentation, so a closed toggle hides the deeper-indented blocks after it. Callouts and quotes hold one block of text rather than nested blocks.
+9. **Sub-pages.** The hierarchy lives only in the tree. A page lists its sub-pages from the tree, and `/page` creates a child page and inserts a mention to it.
+10. **Personal state.** Favorites live in a per-user doc, since they become personal once Phase 3 adds members. Toggle open state and sidebar expansion stay on the device and never sync.
+11. **Images and embeds.** Images are stored locally by content hash, in OPFS files, or in IndexedDB in compatibility mode, and they upload in Phase 3. Embeds are limited to an allowlist (YouTube, Vimeo, Loom, Figma, CodePen and Google Maps) in sandboxed iframes, and anything else becomes a link card.
+12. **Highlighting.** lowlight, synchronous and per block, with common languages bundled and the rest loaded on demand.
+13. **Seed scope.** Phase 1 generates and tests the Tasks and Projects data. Storing it waits for Phase 2's spike, and Phase 2's gate reruns every Phase 1 metric with the full dataset.
+14. **Viewport.** 1536 × 864 at a device scale factor of 1.25, a common 15-inch laptop setup.
+15. **Versions.** Playwright, React and sqlite-wasm move to their newest lines: 1.65, 19.3 and 3.54.1. TypeScript stays on 6 and Vitest on 4 for Phase 1, and step 23 reviews TypeScript 7 and Vitest 5 for a decision at the gate. pnpm is pinned at 11.4.0.
+
+## Still open
+
+- **Design direction:** Chartwork or Workbench, from `docs/design/directions.md`. It's chosen before step 12.
