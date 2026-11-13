@@ -49,7 +49,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 
 ## Steps
 
-- [ ] 1. Workspace and toolchain
+- [x] 1. Workspace and toolchain
 - [ ] 2. Store worker
 - [ ] 3. Model: the workspace tree
 - [ ] 4. Model: blocks and page documents
@@ -106,6 +106,8 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **ADR:** 0001 Toolchain and workspace layout.
 
 **Done when:** a fresh clone passes `pnpm install`, `pnpm check`, `pnpm test` and `pnpm e2e`, and `pnpm dev` serves the shell.
+
+**Deviation:** `playwright`, the library, moves to step 7, where the bench runner first uses it; this step needs only `@playwright/test`. Biome is pinned at 2.6.6 rather than 2.6.7. Version 2.6.7 was 23 hours old, inside pnpm's one-day release-age guard, and pnpm quietly exempted it. Instead of keeping the exemption, `pnpm-workspace.yaml` now sets the guard explicitly and makes it strict.
 
 ### 2. Store worker
 
@@ -728,12 +730,13 @@ Every version is exact: the newest in each chosen line on 2026-11-12. pnpm itsel
 | `@types/react`, `@types/react-dom` | 19.3.0 | 1 |
 | `@types/node` | 24.19.2 | 1 |
 | `vitest` | 4.1.12 | 1 |
-| `@playwright/test`, `playwright` | 1.65.0 | 1 |
-| `@biomejs/biome` | 2.6.7 | 1 |
+| `@playwright/test` | 1.65.0 | 1 |
+| `@biomejs/biome` | 2.6.6 | 1 |
 | `@sqlite.org/sqlite-wasm` | 3.54.1-build1 | 2 |
 | `yjs` | 13.6.33 | 2 |
 | `fast-check` | 4.10.2 | 2 |
 | `@tiptap/pm`, `@tiptap/y-tiptap` | 3.33.1, 3.3.0 | 4 |
+| `playwright` | 1.65.0 | 7 |
 | `@tiptap/core`, `@tiptap/extension-collaboration` | 3.33.1 | 10 |
 | The chosen direction's `@fontsource-variable/*` packages | 5.3.0 | 12 |
 | `@axe-core/playwright` | 4.14.0 | 12 |

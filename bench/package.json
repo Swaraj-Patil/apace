@@ -1,0 +1,11 @@
+{
+  "name": "@apace/bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@apace/seed": "workspace:*"
+  }
+}

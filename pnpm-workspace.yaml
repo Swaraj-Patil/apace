@@ -1,0 +1,12 @@
+packages:
+  - apps/web
+  - packages/*
+  - bench
+
+# `pnpm add` saves exact versions, matching the rest of the manifests.
+savePrefix: ''
+
+# Refuse any package published less than a day ago, and fail rather than quietly
+# adding it to an exclusion list.
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true

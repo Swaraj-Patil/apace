@@ -1,1 +1,17 @@
 .DS_Store
+node_modules/
+*.tsbuildinfo
+
+# Build output
+apps/web/dist/
+apps/web/dist-bench/
+
+# Test output
+test-results/
+playwright-report/
+
+# Bench output. Gate reports are kept; everything else is local.
+bench/.profile/
+bench/traces/
+bench/results/*
+!bench/results/gate-*.json
