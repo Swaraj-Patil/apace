@@ -1,6 +1,8 @@
 # Apace design directions
 
-Two original directions for Apace's interface. One of them, adjusted if needed, is chosen before step 12 of `docs/plan/phase-1.md` builds the shell. Nothing before step 12 depends on the choice.
+Two original directions for Apace's interface.
+
+**Decision, 2026-11-12:** Workbench, with page body text at 16/26 instead of 15/24. The interface sizes are unchanged. Step 12 of `docs/plan/phase-1.md` builds the shell from these tokens.
 
 ## What both directions share
 
@@ -287,13 +289,13 @@ The pairing is the two voices of Recursive, from one variable file. Recursive Sa
 | `h1` | Sans Linear | 24 / 32 px | 750 | Heading 1 |
 | `h2` | Sans Linear | 20 / 28 px | 700 | Heading 2 |
 | `h3` | Sans Linear | 17 / 24 px | 700 | Heading 3 |
-| `body` | Sans Linear | 15 / 24 px | 400 | Block text |
+| `body` | Sans Linear | 16 / 26 px | 400 | Block text |
 | `ui` | Sans Linear | 13 / 18 px | 500, active 600 | Sidebar rows, menus |
 | `input` | Mono Linear | 14 / 20 px | 500 | Command line |
 | `code` | Mono Linear | 13 / 20 px | 400 | Code blocks and inline code |
 | `status` | Mono Linear | 12 / 16 px | 500 | Status bar, gutter tags, kind tags |
 
-The axes are MONO 0 or 1, CASL 0 and slnt 0, with weight from `wght`. Sizes step up by about 1.2 above the 15 px body, and line heights sit on a 2 px grid for dense rows.
+The axes are MONO 0 or 1, CASL 0 and slnt 0, with weight from `wght`. Body text is 16 px and headings step up from 17 to 29 px. Line heights sit on a 2 px grid for dense rows.
 
 ### Spacing, layout and radius
 
@@ -421,7 +423,7 @@ The left segment of the status bar is the indicator. Enter or click opens the de
 ### What Workbench gives up
 
 - Recursive's MONO axis needs the multi-axis font file, which is larger than three single-axis files on the very first visit. Later starts read it from cache.
-- Dense 15 px reading text is less comfortable for long-form writing than a 17 px serif.
+- A 16 px sans in a 760 px sheet is less comfortable for long-form writing than a 17 px serif in a 680 px column.
 - The always-on Markdown gutter and status bar are visual noise for people who never use shortcuts. Both can be hidden, but they're on by default.
 
 ---
@@ -432,7 +434,7 @@ The left segment of the status bar is the indicator. Enter or click opens the de
 |---|---|---|
 | Feel | Calm, editorial, precise | Dense, mechanical, immediate |
 | Surfaces | One paper surface drawn with hairlines | Two flat planes, bench and sheet, square edges |
-| Reading text | Literata 17 px in a centered 680 px column | Recursive Sans 15 px, left-aligned, 760 px |
+| Reading text | Literata 17 px in a centered 680 px column | Recursive Sans 16 px, left-aligned, 760 px |
 | Accent | Chart magenta | Patina green |
 | Command bar | Panel over the reading column | Command line docked at the bottom |
 | Block markers | Left margin, on hover and focus | Always visible, as Markdown shortcuts |
@@ -441,4 +443,4 @@ The left segment of the status bar is the indicator. Enter or click opens the de
 | Fonts | Three files | One multi-axis file |
 | Motion | Short slides that show where things went | None. A one-shot tint marks what moved |
 
-The recommendation is Workbench. Its density and on-screen timings make the speed promise visible everywhere, and its type system carries straight into Phase 2's tables. Chartwork is the better reading experience.
+Workbench was chosen, with the body enlarged to 16/26. Its density and on-screen timings make the speed promise visible everywhere, and its type system carries straight into Phase 2's tables. Chartwork is the better reading experience.

@@ -1,6 +1,6 @@
 # Apace Phase 1 plan: the editor and pages
 
-Status: Approved on 2026-11-12. The design direction is chosen before step 12.
+Status: Approved on 2026-11-12. Design direction: Workbench, with page body text at 16/26.
 
 Branch: `phase-1`, from `main`.
 
@@ -50,7 +50,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 ## Steps
 
 - [x] 1. Workspace and toolchain
-- [ ] 2. Store worker
+- [x] 2. Store worker
 - [ ] 3. Model: the workspace tree
 - [ ] 4. Model: blocks and page documents
 - [ ] 5. Seed generator
@@ -73,7 +73,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [ ] 22. Installable app and offline start
 - [ ] 23. Benchmarks page, README and the Phase 1 gate
 
-Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon as the scaffold can measure it. Step 12 onward needs the chosen design direction.
+Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon as the scaffold can measure it. Step 12 onward builds the interface in the Workbench direction.
 
 ## Step details
 
@@ -158,6 +158,12 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - 0005 Hand-written typed RPC.
 
 **Done when:** tests pass, and persistence, the handoff and compatibility mode are each proven in a real browser.
+
+**Deviation:**
+- **Layout:** the worker entry is `apps/web/src/store/worker/index.ts`. The update log, SQLite helpers and IndexedDB code sit beside it and are type-checked against the WebWorker library.
+- **API:** the worker gained `open(options)` and `checkpoint()`. `close()` became the client's `shutdown()`, which terminates the worker, because termination is the only close a `pagehide` handler can rely on.
+- **Compatibility-mode takeover:** the new owner also waits up to 3 s for the previous owner's "released" message, since nothing else stops two tabs writing IndexedDB at once.
+- **Tests:** the handoff e2e test runs in both OPFS and compatibility modes, and another test covers the no-storage mode. The update-log tests run in Node against sqlite-wasm's Node build.
 
 ### 3. Model: the workspace tree
 
@@ -440,11 +446,11 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 
 ### 12. Design tokens and app shell
 
-This step needs the chosen design direction.
+This step uses the Workbench direction, with page body text at 16/26.
 
 **Builds**
 
-- The chosen direction's tokens as CSS custom properties, light and dark. The app follows the system theme, with an override.
+- Workbench's tokens as CSS custom properties, light and dark. The app follows the system theme, with an override.
 - Self-hosted, preloaded fonts.
 - The layout regions, the focus ring and the reduced-motion tokens.
 - The first in-house icons.
@@ -463,7 +469,7 @@ This step needs the chosen design direction.
 
 **ADR:** 0014 Design direction and tokens.
 
-**Dependencies:** the direction's `@fontsource-variable/*` packages, and `@axe-core/playwright` 4.14.0 (dev).
+**Dependencies:** `@fontsource-variable/recursive` 5.3.0, and `@axe-core/playwright` 4.14.0 (dev).
 
 **Done when:** tests pass and everything is within budget.
 
@@ -609,7 +615,7 @@ This step needs the chosen design direction.
 - The icon picker: a monogram by default, the in-house glyphs, or an emoji.
 - Covers: a local image or a token pattern.
 - The per-page full-width toggle.
-- The page header, in the chosen direction.
+- The page header, in Workbench.
 - The sub-pages list, derived from the tree.
 
 **Tests**
@@ -661,7 +667,7 @@ This step needs the chosen design direction.
 **Builds**
 
 - A web manifest, with in-house icons.
-- A hand-written service worker that precaches the build from Vite's manifest.
+- A hand-written service worker that precaches the build from Vite's manifest. It skips the sqlite-wasm helper files that every build emits but the app never loads: the OPFS async proxy and the Worker1 API, about 250 kB.
 - An update prompt in plain words.
 - Plain-word messages for anything that needs the network. That's embeds and web images now. Sign-in, share links and the assistant will say so the same way when they arrive.
 
@@ -738,7 +744,7 @@ Every version is exact: the newest in each chosen line on 2026-11-12. pnpm itsel
 | `@tiptap/pm`, `@tiptap/y-tiptap` | 3.33.1, 3.3.0 | 4 |
 | `playwright` | 1.65.0 | 7 |
 | `@tiptap/core`, `@tiptap/extension-collaboration` | 3.33.1 | 10 |
-| The chosen direction's `@fontsource-variable/*` packages | 5.3.0 | 12 |
+| `@fontsource-variable/recursive` | 5.3.0 | 12 |
 | `@axe-core/playwright` | 4.14.0 | 12 |
 | `@tanstack/react-virtual` | 3.14.26 | 13 |
 | `lowlight` | 3.3.0 | 15 |
@@ -782,6 +788,4 @@ These were settled on 2026-11-12. Each ADR records the reasoning when its decisi
 14. **Viewport.** 1536 × 864 at a device scale factor of 1.25, a common 15-inch laptop setup.
 15. **Versions.** Playwright, React and sqlite-wasm move to their newest lines: 1.65, 19.3 and 3.54.1. TypeScript stays on 6 and Vitest on 4 for Phase 1, and step 23 reviews TypeScript 7 and Vitest 5 for a decision at the gate. pnpm is pinned at 11.4.0.
 
-## Still open
-
-- **Design direction:** Chartwork or Workbench, from `docs/design/directions.md`. It's chosen before step 12.
+16. **Design direction.** Workbench, from `docs/design/directions.md`, with page body text at 16/26 instead of 15/24. The interface sizes are unchanged.

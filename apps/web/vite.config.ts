@@ -17,4 +17,8 @@ function appName(): Plugin {
 export default defineConfig({
   plugins: [react(), appName()],
   server: { port: 5173, strictPort: true },
+  // The store worker is an ES module, so it can import SQLite and load its wasm alongside it.
+  worker: { format: 'es' },
+  // Pre-bundling would break the relative URL sqlite-wasm uses to find its wasm in dev.
+  optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
 });
