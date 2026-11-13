@@ -6,6 +6,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@apace/seed": "workspace:*"
+    "@apace/model": "workspace:*",
+    "@apace/seed": "workspace:*",
+    "yjs": "13.6.33"
   }
 }

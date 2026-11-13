@@ -60,11 +60,21 @@ importers:
 
   bench:
     dependencies:
+      '@apace/model':
+        specifier: workspace:*
+        version: link:../packages/model
       '@apace/seed':
         specifier: workspace:*
         version: link:../packages/seed
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
 
-  packages/model: {}
+  packages/model:
+    dependencies:
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
 
   packages/seed:
     dependencies:

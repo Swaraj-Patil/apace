@@ -51,7 +51,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 
 - [x] 1. Workspace and toolchain
 - [x] 2. Store worker
-- [ ] 3. Model: the workspace tree
+- [x] 3. Model: the workspace tree
 - [ ] 4. Model: blocks and page documents
 - [ ] 5. Seed generator
 - [ ] 6. Seed import and projections
