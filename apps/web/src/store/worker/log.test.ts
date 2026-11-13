@@ -2,7 +2,8 @@ import sqlite3InitModule, { type Database, type Sqlite3Static } from '@sqlite.or
 import fc from 'fast-check';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import * as Y from 'yjs';
-import { appendUpdates, compactDoc, loadDoc, migrate, SCHEMA_VERSION } from './log.ts';
+import { appendUpdates, compactDoc, loadDoc } from './log.ts';
+import { migrate, SCHEMA_VERSION } from './schema.ts';
 import { exportImage, openImage } from './sqlite.ts';
 
 let sqlite3: Sqlite3Static;
@@ -73,8 +74,10 @@ describe('update log', () => {
     expect(db.selectValue('PRAGMA user_version')).toBe(SCHEMA_VERSION);
     migrate(db);
     expect(
-      db.selectValues("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name"),
-    ).toEqual(['docs', 'updates']);
+      db.selectValues(
+        "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'search_%' ORDER BY name",
+      ),
+    ).toEqual(['blocks', 'docs', 'links', 'pages', 'search', 'updates']);
   });
 
   test('a database from a newer version is refused, not guessed at', () => {

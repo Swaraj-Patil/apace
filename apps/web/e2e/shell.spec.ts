@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PLANTED } from '@apace/seed';
 import { expect, type Page, test } from '@playwright/test';
 import { BENCH_URL, PRODUCTION_URL } from './urls.ts';
 
@@ -39,11 +40,15 @@ test('no response asks for cross-origin isolation', async ({ page }) => {
   expect(await page.evaluate(() => window.crossOriginIsolated)).toBe(false);
 });
 
-test('bench hooks exist only in bench builds', async ({ page }) => {
+test('bench hooks and the seed generator exist only in bench builds', async ({ page }) => {
   const files = await readdir(productionDist, { recursive: true, withFileTypes: true });
   for (const file of files.filter((entry) => entry.isFile())) {
     const text = await readFile(join(file.parentPath, file.name), 'utf8');
     expect(text.includes('__bench'), `${file.name} mentions __bench`).toBe(false);
+    // The seed's word lists come with its generator, so its planted words give it away.
+    for (const word of PLANTED) {
+      expect(text.includes(word), `${file.name} holds the seed's word ${word}`).toBe(false);
+    }
   }
 
   await page.goto(PRODUCTION_URL);

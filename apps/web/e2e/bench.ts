@@ -3,11 +3,35 @@
 import type { Page } from '@playwright/test';
 import { BENCH_URL } from './urls.ts';
 
+/** What the status shows once the store is ready in each mode. */
+export const SAVED = {
+  opfs: 'Saved on this device',
+  compat: 'Saved in this browser (compatibility mode)',
+} as const;
+
+export interface Counts {
+  readonly pages: number;
+  readonly trashed: number;
+  readonly blocks: number;
+  readonly links: number;
+}
+
+export interface SeedSummary {
+  readonly expected: Pick<Counts, 'pages' | 'trashed' | 'blocks'>;
+  readonly searchQueries: readonly { readonly query: string; readonly expected: string }[];
+  readonly generateMs: number;
+  readonly importMs: number;
+}
+
 interface BenchStore {
   history(): readonly string[];
   writeText(docId: string, text: string): Promise<void>;
   readText(docId: string): Promise<string | null>;
   checkpoint(): Promise<void>;
+  seed(seed: number): Promise<SeedSummary>;
+  retitle(pageId: string, title: string): Promise<void>;
+  counts(): Promise<Counts>;
+  search(query: string, limit: number): Promise<readonly { readonly id: string }[]>;
 }
 
 type BenchWindow = Window & { __bench?: { store?: BenchStore } };
@@ -60,4 +84,43 @@ export function statusHistory(page: Page): Promise<readonly string[]> {
     if (store === undefined) throw new Error('This is not a bench build');
     return store.history();
   });
+}
+
+export function seed(page: Page, seed: number): Promise<SeedSummary> {
+  return page.evaluate((n) => {
+    const store = (window as BenchWindow).__bench?.store;
+    if (store === undefined) throw new Error('This is not a bench build');
+    return store.seed(n);
+  }, seed);
+}
+
+export function counts(page: Page): Promise<Counts> {
+  return page.evaluate(() => {
+    const store = (window as BenchWindow).__bench?.store;
+    if (store === undefined) throw new Error('This is not a bench build');
+    return store.counts();
+  });
+}
+
+/** The ids of the top hits, best first. */
+export function search(page: Page, query: string, limit: number): Promise<string[]> {
+  return page.evaluate(
+    async ([text, most]) => {
+      const store = (window as BenchWindow).__bench?.store;
+      if (store === undefined) throw new Error('This is not a bench build');
+      return (await store.search(text, most)).map((hit) => hit.id);
+    },
+    [query, limit] as const,
+  );
+}
+
+export function retitle(page: Page, pageId: string, title: string): Promise<void> {
+  return page.evaluate(
+    ([id, text]) => {
+      const store = (window as BenchWindow).__bench?.store;
+      if (store === undefined) throw new Error('This is not a bench build');
+      return store.retitle(id, text);
+    },
+    [pageId, title] as const,
+  );
 }

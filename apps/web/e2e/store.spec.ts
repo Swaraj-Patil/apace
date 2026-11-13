@@ -1,10 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { checkpoint, openBench, readText, reloadBench, statusHistory, writeText } from './bench.ts';
-
-const SAVED = {
-  opfs: 'Saved on this device',
-  compat: 'Saved in this browser (compatibility mode)',
-} as const;
+import {
+  checkpoint,
+  openBench,
+  readText,
+  reloadBench,
+  SAVED,
+  statusHistory,
+  writeText,
+} from './bench.ts';
 
 test('writes survive reloads, and a reload gets the workspace back at once', async ({ page }) => {
   await openBench(page);

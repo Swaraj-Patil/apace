@@ -1,5 +1,6 @@
 // The store worker. While it holds the workspace-db lock it is the only code in the origin
 // that touches the workspace's storage. The main thread drives it through rpc.ts.
+import { WORKSPACE_DOC_ID } from '@apace/model';
 import type { Database, SAHPoolUtil, Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import {
   LOCK_NAME,
@@ -13,7 +14,10 @@ import {
 } from '../api.ts';
 import { serve, transfer } from '../rpc.ts';
 import { type CompatStorage, openCompatStorage } from './compat.ts';
-import { appendUpdates, compactDoc, loadDoc, migrate } from './log.ts';
+import { debounce } from './debounce.ts';
+import { appendUpdates, compactDoc, loadDoc } from './log.ts';
+import { createProjector, type ImportRecord, type Projector } from './projector.ts';
+import { migrate } from './schema.ts';
 import {
   claimPool,
   exportImage,
@@ -26,6 +30,12 @@ import {
 /** In compatibility mode, how many logged batches trigger a database snapshot. */
 const SNAPSHOT_EVERY = 200;
 const DB_FILE = '/workspace.db';
+/** While a page receives updates, its projection waits for this much quiet... */
+const PROJECT_AFTER_QUIET_MS = 250;
+/** ...but never longer than this. */
+const PROJECT_AT_MOST_AFTER_MS = 2000;
+/** A page replica with no updates for this long is dropped. */
+const REPLICA_IDLE_MS = 60_000;
 
 interface Opened {
   readonly db: Database;
@@ -33,6 +43,7 @@ interface Opened {
   readonly compat: CompatStorage | null;
   /** Compatibility mode: log keys already in the database but not yet in a snapshot. */
   readonly unsnapshotted: number[];
+  readonly projector: Projector;
 }
 
 // After a takeover, the previous owner says on this channel that it has stopped writing.
@@ -48,6 +59,17 @@ let pool: SAHPoolUtil | undefined;
 let holdingLock = false;
 let cancelQueuedRequest: (() => void) | undefined;
 let queue: Promise<unknown> = Promise.resolve();
+let watchingTree = false;
+
+const projectSoon = debounce(
+  () => void serially(project),
+  PROJECT_AFTER_QUIET_MS,
+  PROJECT_AT_MOST_AFTER_MS,
+);
+setInterval(
+  () => void serially(() => opened?.projector.dropIdleReplicas(REPLICA_IDLE_MS)),
+  REPLICA_IDLE_MS,
+);
 
 const server = serve<StoreApi, StoreEvents>(self as unknown as DedicatedWorkerGlobalScope, {
   open(next) {
@@ -61,8 +83,11 @@ const server = serve<StoreApi, StoreEvents>(self as unknown as DedicatedWorkerGl
       if (store.compat !== null) {
         store.unsnapshotted.push(await store.compat.append(docId, updates));
       }
-      appendUpdates(store.db, docId, updates);
+      store.projector.append(docId, updates);
       if (store.unsnapshotted.length >= SNAPSHOT_EVERY) await snapshot(store);
+      // The tree shows a move at once. A page waits until typing pauses.
+      if (docId === WORKSPACE_DOC_ID) void serially(project);
+      else projectSoon.schedule();
     }),
   loadDoc: (docId) =>
     serially(async () => {
@@ -80,7 +105,96 @@ const server = serve<StoreApi, StoreEvents>(self as unknown as DedicatedWorkerGl
       const store = await current();
       if (store.unsnapshotted.length > 0) await snapshot(store);
     }),
+  getTree: () =>
+    serially(async () => {
+      const tree = (await current()).projector.tree();
+      return transfer(tree, [tree]);
+    }),
+  search: (query, limit) => serially(async () => (await current()).projector.search(query, limit)),
+  backlinks: (pageId) => serially(async () => (await current()).projector.backlinks(pageId)),
+  counts: () => serially(async () => (await current()).projector.counts()),
+  rebuildProjections: () =>
+    serially(async () => {
+      const store = await current();
+      store.projector.rebuild();
+      await snapshot(store);
+    }),
+  watchTree(on) {
+    watchingTree = on;
+    if (on) void serially(sendTree);
+  },
+  seed: (seed) =>
+    serially(async () => {
+      const store = await current();
+      if (import.meta.env.MODE === 'bench') {
+        const { seedWorkspace } = await import('./seed.ts');
+        return seedWorkspace(seed, (records) => importInto(store, records));
+      }
+      throw new Error('Only bench builds can seed a workspace.');
+    }),
 });
+
+/** Replaces the workspace with these docs. */
+async function importInto(store: Opened, records: readonly ImportRecord[]): Promise<void> {
+  if (store.mode !== 'opfs' || pool === undefined) {
+    store.projector.importWorkspace(records);
+    // Compatibility mode keeps the import with one snapshot, not a log entry per doc.
+    await snapshot(store);
+    return;
+  }
+  // Written straight to OPFS, the seeded workspace costs a call per page and takes more than
+  // ten seconds. Built in memory, it goes to OPFS as one file in a fraction of that.
+  const sqlite3 = await loadSqlite();
+  const staging = new sqlite3.oo1.DB(':memory:');
+  let image: Uint8Array;
+  try {
+    migrate(staging);
+    const projector = createProjector(staging);
+    projector.importWorkspace(records);
+    projector.close();
+    image = exportImage(sqlite3, staging);
+  } finally {
+    staging.close();
+  }
+  store.projector.close();
+  store.db.close();
+  try {
+    await pool.importDb(DB_FILE, image);
+  } finally {
+    const db = new pool.OpfsSAHPoolDb(DB_FILE);
+    migrate(db);
+    opened = { ...store, db, projector: openProjector(db) };
+  }
+  void serially(sendTree);
+}
+
+/** Projects every update appended so far. */
+function project(): void {
+  try {
+    opened?.projector.flush();
+  } catch (error) {
+    // The projector rolled back and will recover from the log on its next flush.
+    console.error('Projecting the workspace failed', error);
+  }
+}
+
+function sendTree(): void {
+  if (!watchingTree || opened === undefined) return;
+  const tree = opened.projector.tree();
+  server.emit('tree', tree, [tree]);
+}
+
+function openProjector(db: Database): Projector {
+  const projector = createProjector(db, {
+    events: {
+      // Sent from its own task, after the write that changed the tree has finished.
+      tree: () => void serially(sendTree),
+      pageMeta: (pages) => server.emit('pageMeta', pages),
+    },
+  });
+  projector.recover();
+  return projector;
+}
 
 /**
  * Asks for the workspace lock. A normal request waits in line. After OPEN_ELSEWHERE_AFTER_MS
@@ -144,6 +258,10 @@ function letGo(): void {
   const store = opened;
   becomeUnavailable({ state: 'moved-away' });
   void serially(() => {
+    // Projecting now saves the next owner from projecting these updates as it opens.
+    try {
+      store?.projector.flush();
+    } catch {}
     closeStorage(store);
     handoff.postMessage('released');
   });
@@ -158,11 +276,11 @@ async function openStorage(previousOwnerDone: Promise<void>): Promise<Opened> {
       const db = new claimed.OpfsSAHPoolDb(DB_FILE);
       try {
         migrate(db);
+        return { db, mode: 'opfs', compat: null, unsnapshotted: [], projector: openProjector(db) };
       } catch (error) {
         db.close();
         throw error;
       }
-      return { db, mode: 'opfs', compat: null, unsnapshotted: [] };
     }
   }
   if (mode !== 'unsaved') {
@@ -172,7 +290,7 @@ async function openStorage(previousOwnerDone: Promise<void>): Promise<Opened> {
   }
   const db = new sqlite3.oo1.DB(':memory:');
   migrate(db);
-  return { db, mode: 'unsaved', compat: null, unsnapshotted: [] };
+  return { db, mode: 'unsaved', compat: null, unsnapshotted: [], projector: openProjector(db) };
 }
 
 /**
@@ -205,7 +323,8 @@ function openCompat(sqlite3: Sqlite3Static, compat: CompatStorage): Opened {
     appendUpdates(db, entry.docId, entry.updates);
     unsnapshotted.push(entry.key);
   }
-  return { db, mode: 'compat', compat, unsnapshotted };
+  // The replayed updates aren't projected yet, so the projector picks them up as it opens.
+  return { db, mode: 'compat', compat, unsnapshotted, projector: openProjector(db) };
 }
 
 async function snapshot(store: Opened): Promise<void> {
@@ -220,6 +339,8 @@ async function snapshot(store: Opened): Promise<void> {
 }
 
 function closeStorage(store: Opened | undefined): void {
+  projectSoon.cancel();
+  store?.projector.close();
   store?.compat?.close();
   store?.db.close();
   if (pool !== undefined && !pool.isPaused()) pool.pauseVfs();
@@ -238,6 +359,7 @@ function becomeReady(store: Opened): void {
   opened = store;
   readiness.resolve(store);
   setStatus({ state: 'ready', mode: store.mode });
+  if (watchingTree) void serially(sendTree);
 }
 
 function becomeUnavailable(next: StoreStatus): void {

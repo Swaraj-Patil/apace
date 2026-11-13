@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "preserve",
     "moduleResolution": "bundler",
-    "lib": ["es2024", "webworker"]
+    "lib": ["es2024", "webworker"],
+    "types": ["vite/client"]
   },
   "include": ["src/store/worker"]
 }

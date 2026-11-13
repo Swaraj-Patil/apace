@@ -54,7 +54,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [x] 3. Model: the workspace tree
 - [x] 4. Model: blocks and page documents
 - [x] 5. Seed generator
-- [ ] 6. Seed import and projections
+- [x] 6. Seed import and projections
 - [ ] 7. Bench harness
 - [ ] 8. End-to-end smoke suite
 - [ ] 9. CI
@@ -301,6 +301,14 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **ADR:** 0006, updated with the projection tables and the rebuild rule.
 
 **Done when:** tests pass.
+
+**Deviation:**
+- **Unprojected updates:** `docs.projected_seq` records how far each doc is projected. Opening the store projects whatever a closed tab, a crash or the upgrade from schema 1 left behind, and a failed projection write recovers the same way.
+- **Reads** project whatever is waiting before they run, so they reflect every durable update.
+- **Seeding in OPFS:** written page by page into OPFS, the seeded workspace took 12 to 17 s to import. The seed import now builds the database in memory and hands it to the OPFS pool as one file, which takes under 2 s. Compatibility mode imports in memory and writes one snapshot.
+- **Bench hooks:** the e2e test needs to seed, so `seed(n)` lands now, running the generator inside the worker. The bench build also gains `counts`, `search` and `retitle`; step 7 adds the rest of `window.__bench`.
+- **Extra reads:** `counts()` and `rebuildProjections()`. Tree subscriptions send the whole encoded tree.
+- **Layout:** the schema moved to `worker/schema.ts`, and `@apace/web` now depends on `@apace/seed`. Only bench builds import it, and an e2e test checks that production bundles hold none of the seed's words.
 
 ### 7. Bench harness
 

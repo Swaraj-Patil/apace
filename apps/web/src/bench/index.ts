@@ -1,7 +1,8 @@
 // Bench builds only. main.tsx imports this module behind import.meta.env.MODE === 'bench',
 // so production bundles never contain it. The bench harness grows it into the full API.
+import { CONTENT_FIELD } from '@apace/model';
 import * as Y from 'yjs';
-import type { StoreStatus } from '../store/api.ts';
+import type { SearchHit, SeedSummary, StoreStatus, WorkspaceCounts } from '../store/api.ts';
 import type { Store } from '../store/client.ts';
 
 export interface BenchApi {
@@ -19,6 +20,12 @@ export interface BenchStore {
   writeText(docId: string, text: string): Promise<void>;
   readText(docId: string): Promise<string | null>;
   checkpoint(): Promise<void>;
+  /** Replaces the workspace with the one generated from `seed`, inside the store worker. */
+  seed(seed: number): Promise<SeedSummary>;
+  /** Replaces a page's title, as one update, the way typing in it would. */
+  retitle(pageId: string, title: string): Promise<void>;
+  counts(): Promise<WorkspaceCounts>;
+  search(query: string, limit: number): Promise<readonly SearchHit[]>;
 }
 
 declare global {
@@ -55,6 +62,25 @@ export function install({ store }: { store: Store }): void {
         return (await load(docId))?.getText('text').toString() ?? null;
       },
       checkpoint: () => store.checkpoint(),
+      seed: (seed) => store.seed(seed),
+      async retitle(pageId, title) {
+        const doc = await load(pageId);
+        const heading = doc?.getXmlFragment(CONTENT_FIELD).get(0);
+        if (doc === null || !(heading instanceof Y.XmlElement)) {
+          throw new Error(`${pageId} has no title`);
+        }
+        const before = Y.encodeStateVector(doc);
+        const text = heading.get(0);
+        if (text instanceof Y.XmlText) {
+          text.delete(0, text.length);
+          text.insert(0, title);
+        } else {
+          heading.insert(0, [new Y.XmlText(title)]);
+        }
+        await store.appendUpdates(pageId, [Y.encodeStateAsUpdate(doc, before)]);
+      },
+      counts: () => store.counts(),
+      search: (query, limit) => store.search(query, limit),
     },
   };
 }

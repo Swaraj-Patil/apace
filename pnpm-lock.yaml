@@ -32,6 +32,9 @@ importers:
       '@apace/model':
         specifier: workspace:*
         version: link:../../packages/model
+      '@apace/seed':
+        specifier: workspace:*
+        version: link:../../packages/seed
       '@sqlite.org/sqlite-wasm':
         specifier: 3.54.1-build1
         version: 3.54.1-build1
