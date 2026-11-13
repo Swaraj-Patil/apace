@@ -2,6 +2,7 @@
   "name": "@apace/model",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
@@ -9,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@tiptap/pm": "3.33.1",
+    "@tiptap/y-tiptap": "3.3.0",
     "yjs": "13.6.33"
   }
 }

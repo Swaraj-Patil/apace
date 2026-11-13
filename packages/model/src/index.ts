@@ -1,4 +1,41 @@
 export { APP_NAME } from './app.ts';
+export { nodeToPage, pageToJSON, pageToNode, writeMeta, writePage } from './blocks/convert.ts';
+export {
+  type BlockRow,
+  effectiveIds,
+  linksOf,
+  type PageChange,
+  type PageProjection,
+  projectionToPage,
+  projectPage,
+  readMeta,
+  searchTextOf,
+  watchPage,
+} from './blocks/project.ts';
+export { schema } from './blocks/schema.ts';
+export {
+  type AttrValue,
+  BLOCK_TYPES,
+  BLOCKS,
+  type Block,
+  type BlockContent,
+  type BlockType,
+  blockAttrs,
+  CONTENT_FIELD,
+  EMPTY_META,
+  type Inline,
+  isBlockType,
+  MARK_TYPES,
+  MAX_INDENT,
+  type Marks,
+  type MarkType,
+  META_FIELD,
+  makeBlock,
+  normalizeContent,
+  type Page,
+  type PageMeta,
+  textOf,
+} from './blocks/spec.ts';
 export { randomId } from './ids.ts';
 export { assertValidKey, orderKeyBetween } from './order.ts';
 export {

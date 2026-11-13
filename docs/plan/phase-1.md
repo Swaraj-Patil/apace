@@ -52,7 +52,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [x] 1. Workspace and toolchain
 - [x] 2. Store worker
 - [x] 3. Model: the workspace tree
-- [ ] 4. Model: blocks and page documents
+- [x] 4. Model: blocks and page documents
 - [ ] 5. Seed generator
 - [ ] 6. Seed import and projections
 - [ ] 7. Bench harness
@@ -226,6 +226,13 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **ADR:** 0008 Flat blocks with indent levels.
 
 **Done when:** tests pass.
+
+**Deviation:**
+- **Content in rows:** block rows also carry each block's canonical inline content (text runs with marks, mentions and line breaks), so step 10 can paint a page's first screen straight from the projection.
+- **Mark name:** inline code's mark is `inlineCode`, because ProseMirror can't have a node and a mark both named `code`.
+- **Incremental API:** `watchPage` emits each transaction's changed rows and removed ids.
+- **Worker check:** "imports cleanly in a worker" is proven in a Node worker thread, which has no DOM. The browser's store worker starts using the model in step 6.
+- **Peer dependency:** `y-protocols` 1.0.7 comes in as y-tiptap's peer.
 
 ### 5. Seed generator
 

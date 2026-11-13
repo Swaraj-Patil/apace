@@ -8,6 +8,8 @@ Every dependency is pinned to an exact version, and pnpm refuses any release les
 - `react-dom` 19.3.1: renders React components into the browser DOM.
 - `@sqlite.org/sqlite-wasm` 3.54.1-build1: SQLite compiled to WebAssembly, with the opfs-sahpool file system that keeps the workspace in OPFS without cross-origin isolation.
 - `yjs` 13.6.33: the CRDT whose updates are the workspace's source of truth; the model builds the page tree on it, and the store merges its updates when it loads and compacts docs.
+- `@tiptap/pm` 3.33.1: ProseMirror's packages as TipTap ships them; the model builds the page schema with its `model` package.
+- `@tiptap/y-tiptap` 3.3.0: the ProseMirror–Yjs binding TipTap's Collaboration extension uses; the model converts pages through it, so every writer encodes them the same way. pnpm installs its peer `y-protocols` 1.0.7, which carries cursor awareness.
 
 ## Build
 
