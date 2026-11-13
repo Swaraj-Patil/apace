@@ -1,9 +1,11 @@
-// A static server for production and bench builds. It sends no COOP or COEP headers, caches
-// hashed assets forever, and revalidates everything else, the way a real host would.
+// A static server for production and bench builds that serves them the way Vercel serves the
+// deployed site: files first, then the rewrites and headers in vercel.json. It refuses any
+// setting it doesn't implement, so serving locally can't quietly differ from the real host.
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -22,8 +24,105 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-export function serveStatic(rootDir: string, port: number, host = '127.0.0.1'): Promise<Server> {
+/** What Vercel sends for a static file that no header rule overrides. */
+const DEFAULT_CACHE_CONTROL = 'public, max-age=0, must-revalidate';
+
+/** The repo's Vercel configuration. */
+export const VERCEL_CONFIG = fileURLToPath(new URL('../vercel.json', import.meta.url));
+
+/** Settings that only shape the build, so a server can ignore them. */
+const BUILD_SETTINGS = new Set([
+  '$schema',
+  'framework',
+  'installCommand',
+  'buildCommand',
+  'outputDirectory',
+]);
+
+export interface HostRules {
+  readonly rewrites: readonly { readonly source: URLPattern; readonly destination: string }[];
+  readonly headers: readonly {
+    readonly source: URLPattern;
+    readonly headers: readonly (readonly [string, string])[];
+  }[];
+}
+
+function unsupported(what: string): never {
+  throw new Error(`bench/serve.ts doesn't implement ${what} from vercel.json`);
+}
+
+function onlyKeys(value: unknown, keys: readonly string[], what: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) unsupported(`a ${what} that isn't an object`);
+  for (const key of Object.keys(value))
+    if (!keys.includes(key)) unsupported(`"${key}" in a ${what}`);
+  return value as Record<string, unknown>;
+}
+
+function list(value: unknown, what: string): readonly unknown[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) unsupported(`${what} that aren't a list`);
+  return value;
+}
+
+function pattern(source: unknown): URLPattern {
+  if (typeof source !== 'string') unsupported("a source that isn't a string");
+  return new URLPattern({ pathname: source });
+}
+
+/** The rewrites and headers of a vercel.json, ready to match request paths against. */
+export function hostRules(config: unknown): HostRules {
+  const settings = onlyKeys(config, [...BUILD_SETTINGS, 'rewrites', 'headers'], 'configuration');
+  return {
+    rewrites: list(settings.rewrites, 'rewrites').map((entry) => {
+      const rule = onlyKeys(entry, ['source', 'destination'], 'rewrite');
+      // A rewrite here serves one file, so it can't substitute parameters or leave the site.
+      if (typeof rule.destination !== 'string' || !/^\/[^:$]*$/.test(rule.destination)) {
+        unsupported(`the rewrite destination ${JSON.stringify(rule.destination)}`);
+      }
+      return { source: pattern(rule.source), destination: rule.destination };
+    }),
+    headers: list(settings.headers, 'headers').map((entry) => {
+      const rule = onlyKeys(entry, ['source', 'headers'], 'header rule');
+      return {
+        source: pattern(rule.source),
+        headers: list(rule.headers, 'headers').map((header) => {
+          const { key, value } = onlyKeys(header, ['key', 'value'], 'header');
+          if (typeof key !== 'string' || typeof value !== 'string') {
+            unsupported("a header whose key or value isn't a string");
+          }
+          return [key.toLowerCase(), value] as const;
+        }),
+      };
+    }),
+  };
+}
+
+export async function readHostRules(path = VERCEL_CONFIG): Promise<HostRules> {
+  return hostRules(JSON.parse(await readFile(path, 'utf8')));
+}
+
+export function serveStatic(
+  rootDir: string,
+  port: number,
+  rules: HostRules,
+  host = '127.0.0.1',
+): Promise<Server> {
   const root = resolve(rootDir);
+  /** The file a path names, with a directory standing for its index.html. */
+  const fileAt = async (path: string): Promise<{ file: string; size: number } | null> => {
+    try {
+      let file = join(root, path);
+      let info = await stat(file);
+      if (info.isDirectory()) {
+        file = join(file, 'index.html');
+        info = await stat(file);
+      }
+      return info.isFile() ? { file, size: info.size } : null;
+    } catch {
+      return null;
+    }
+  };
+
   const server = createServer(async (request, response) => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.writeHead(405, { allow: 'GET, HEAD' }).end();
@@ -36,28 +135,33 @@ export function serveStatic(rootDir: string, port: number, host = '127.0.0.1'): 
       response.writeHead(400).end();
       return;
     }
-    // A path without an extension is an app route, so it gets the shell.
-    const target = extname(path) === '' ? '/index.html' : path;
-    const file = join(root, target);
-    if (!file.startsWith(root + sep)) {
+    const target = join(root, path);
+    if (target !== root && !target.startsWith(root + sep)) {
       response.writeHead(403).end();
       return;
     }
-    try {
-      const info = await stat(file);
-      if (!info.isFile()) throw new Error(`${file} is not a file`);
-      response.writeHead(200, {
-        'content-type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream',
-        'content-length': info.size,
-        'cache-control': target.startsWith('/assets/')
-          ? 'public, max-age=31536000, immutable'
-          : 'no-cache',
-      });
-      if (request.method === 'HEAD') response.end();
-      else createReadStream(file).pipe(response);
-    } catch {
-      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
+    // Files take precedence, and only a path that names none is rewritten.
+    let found = await fileAt(path);
+    if (found === null) {
+      const rewrite = rules.rewrites.find((rule) => rule.source.test({ pathname: path }));
+      if (rewrite !== undefined) found = await fileAt(rewrite.destination);
     }
+    if (found === null) {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
+      return;
+    }
+    const headers: Record<string, string | number> = {
+      'content-type': CONTENT_TYPES[extname(found.file)] ?? 'application/octet-stream',
+      'content-length': found.size,
+      'cache-control': DEFAULT_CACHE_CONTROL,
+    };
+    for (const rule of rules.headers) {
+      if (!rule.source.test({ pathname: path })) continue;
+      for (const [key, value] of rule.headers) headers[key] = value;
+    }
+    response.writeHead(200, headers);
+    if (request.method === 'HEAD') response.end();
+    else createReadStream(found.file).pipe(response);
   });
   return new Promise((resolveServer, reject) => {
     server.once('error', reject);
@@ -71,6 +175,8 @@ if (import.meta.main) {
     console.error('Usage: node bench/serve.ts --root <dir> --port <port>');
     process.exit(2);
   }
-  await serveStatic(values.root, Number(values.port));
-  console.log(`Serving ${values.root} at http://127.0.0.1:${values.port}/`);
+  await serveStatic(values.root, Number(values.port), await readHostRules());
+  console.log(
+    `Serving ${values.root} at http://127.0.0.1:${values.port}/ with vercel.json's rules`,
+  );
 }

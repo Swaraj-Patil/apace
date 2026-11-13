@@ -742,6 +742,7 @@ This step uses the Workbench direction, with page body text at 16/26.
 | 0016 | Local assets and embeds before there's a server | 15 |
 | 0017 | Sub-pages live in the tree, not in page content | 18 |
 | 0018 | Offline policy and the service worker | 22 |
+| 0019 | Hosting on Vercel | Outside the steps, between 6 and 7 |
 
 The remaining decisions get their ADRs in the phases that implement them: rows to Yjs docs in Phase 2, and the change feed and batched first sync in Phase 3.
 

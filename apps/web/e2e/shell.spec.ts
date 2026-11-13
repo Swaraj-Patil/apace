@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLANTED } from '@apace/seed';
 import { expect, type Page, test } from '@playwright/test';
+import { SAVED } from './bench.ts';
 import { BENCH_URL, PRODUCTION_URL } from './urls.ts';
 
 const productionDist = fileURLToPath(new URL('../dist/', import.meta.url));
@@ -23,6 +24,26 @@ test('the production build paints the shell with no console errors', async ({ pa
   await expect(page).toHaveTitle('Apace');
   await expect(page.getByRole('heading', { level: 1, name: 'Apace' })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// The production server applies vercel.json's rewrites and headers, as the deployed site does.
+test('the hosted build opens the store at any route, with no console errors', async ({ page }) => {
+  const errors = collectErrors(page);
+  const response = await page.goto(`${PRODUCTION_URL}pages/some-page`);
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole('status')).toHaveText(SAVED.opfs);
+  expect(errors).toEqual([]);
+});
+
+test('the hosted build answers a missing asset with 404, and serves wasm as wasm', async ({
+  request,
+}) => {
+  expect((await request.get(`${PRODUCTION_URL}assets/missing.js`)).status()).toBe(404);
+  const assets = await readdir(join(productionDist, 'assets'));
+  const wasm = assets.find((name) => name.endsWith('.wasm'));
+  const response = await request.get(`${PRODUCTION_URL}assets/${wasm}`);
+  expect(response.headers()['content-type']).toBe('application/wasm');
+  expect(response.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
 });
 
 test('no response asks for cross-origin isolation', async ({ page }) => {
