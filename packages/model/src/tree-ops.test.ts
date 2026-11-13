@@ -13,6 +13,7 @@ import {
   restorePage,
   type TreeEnv,
   trashPage,
+  writeEntries,
 } from './tree-ops.ts';
 
 function replica(clientID: number): Y.Doc {
@@ -53,6 +54,27 @@ function isWithin(tree: Tree, candidate: string, root: string): boolean {
 }
 
 describe('tree operations', () => {
+  test('entries written in bulk read back exactly', () => {
+    const doc = replica(1);
+    const entries = [
+      {
+        id: 'a',
+        placement: { parent: null, order: 'a0', time: 5, client: 1 },
+        trashed: null,
+        created: 5,
+      },
+      {
+        id: 'b',
+        placement: { parent: 'a', order: 'a0', time: 6, client: 1 },
+        trashed: { at: 7, client: 1 },
+        created: 6,
+      },
+    ];
+    writeEntries(doc, entries);
+    expect(readEntries(doc)).toEqual(entries);
+    expect(readTree(doc).preorder).toEqual(['a', 'b']);
+  });
+
   test('create puts a page last, first, or right after a sibling', () => {
     const doc = replica(1);
     const env = clock()('p');

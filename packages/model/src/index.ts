@@ -63,4 +63,6 @@ export {
   systemEnv,
   type TreeEnv,
   trashPage,
+  WORKSPACE_DOC_ID,
+  writeEntries,
 } from './tree-ops.ts';

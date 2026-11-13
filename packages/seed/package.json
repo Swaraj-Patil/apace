@@ -2,6 +2,7 @@
   "name": "@apace/seed",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
@@ -9,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@apace/model": "workspace:*"
+    "@apace/model": "workspace:*",
+    "yjs": "13.6.33"
   }
 }

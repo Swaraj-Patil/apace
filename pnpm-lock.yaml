@@ -78,6 +78,9 @@ importers:
       '@tiptap/y-tiptap':
         specifier: 3.3.0
         version: 3.3.0(prosemirror-model@1.25.13)(prosemirror-state@1.4.4)(prosemirror-view@1.42.9)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
+      y-protocols:
+        specifier: 1.0.7
+        version: 1.0.7(yjs@13.6.33)
       yjs:
         specifier: 13.6.33
         version: 13.6.33
@@ -87,6 +90,9 @@ importers:
       '@apace/model':
         specifier: workspace:*
         version: link:../model
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
 
 packages:
 

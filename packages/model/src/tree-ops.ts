@@ -22,6 +22,9 @@ export interface TreeEnv {
 
 export const systemEnv: TreeEnv = { now: () => Date.now(), newId: randomId };
 
+/** The id of the doc that holds the page tree. Page ids have 16 characters, so none can clash. */
+export const WORKSPACE_DOC_ID = 'workspace';
+
 /**
  * Where a page goes: under `parent`, right after the sibling `after`. A null `after` means first
  * among the siblings; leaving it out means last.
@@ -52,6 +55,23 @@ export function readEntries(doc: Y.Doc): PageEntry[] {
 
 export function readTree(doc: Y.Doc): Tree {
   return projectTree(readEntries(doc));
+}
+
+/**
+ * Writes page entries exactly as given, in one transaction. This is for seeding a workspace;
+ * edits go through the operations below, which keep the tree's rules.
+ */
+export function writeEntries(doc: Y.Doc, entries: readonly PageEntry[]): void {
+  doc.transact(() => {
+    const pages = pagesOf(doc);
+    for (const entry of entries) {
+      const page = new Y.Map<unknown>();
+      page.set('placement', entry.placement);
+      page.set('trashed', entry.trashed);
+      page.set('created', entry.created);
+      pages.set(entry.id, page);
+    }
+  });
 }
 
 export function createPage(doc: Y.Doc, position: Position, env: TreeEnv = systemEnv): string {

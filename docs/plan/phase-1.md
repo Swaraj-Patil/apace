@@ -53,7 +53,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [x] 2. Store worker
 - [x] 3. Model: the workspace tree
 - [x] 4. Model: blocks and page documents
-- [ ] 5. Seed generator
+- [x] 5. Seed generator
 - [ ] 6. Seed import and projections
 - [ ] 7. Bench harness
 - [ ] 8. End-to-end smoke suite
@@ -232,7 +232,7 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - **Mark name:** inline code's mark is `inlineCode`, because ProseMirror can't have a node and a mark both named `code`.
 - **Incremental API:** `watchPage` emits each transaction's changed rows and removed ids.
 - **Worker check:** "imports cleanly in a worker" is proven in a Node worker thread, which has no DOM. The browser's store worker starts using the model in step 6.
-- **Peer dependency:** `y-protocols` 1.0.7 comes in as y-tiptap's peer.
+- **Peer dependency:** `y-protocols` 1.0.7 came in as y-tiptap's peer. Since step 5 it's pinned in the model package's own dependencies.
 
 ### 5. Seed generator
 
@@ -267,6 +267,13 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **ADR:** 0009 Deterministic seed and bench fixtures.
 
 **Done when:** tests pass.
+
+**Deviation:**
+- **Favorites:** they're a fixture list for now. Favorites live in a per-user doc, which step 14 adds, and the seed will write them there.
+- **Model additions:** `writeEntries` writes many tree entries in one transaction, and `WORKSPACE_DOC_ID` names the doc that holds the tree.
+- **Search fixtures:** each of the 12 planted words, and its four-letter prefix, with its page as the expected top hit: 24 queries.
+- **Page icons** are emoji until step 19's picker adds its own glyphs.
+- **Generation time** is recorded by `node bench/seed.ts` and in ADR 0009, since tests don't print.
 
 ### 6. Seed import and projections
 
@@ -749,6 +756,7 @@ Every version is exact: the newest in each chosen line on 2026-11-12. pnpm itsel
 | `yjs` | 13.6.33 | 2 |
 | `fast-check` | 4.10.2 | 2 |
 | `@tiptap/pm`, `@tiptap/y-tiptap` | 3.33.1, 3.3.0 | 4 |
+| `y-protocols` | 1.0.7 | 4 |
 | `playwright` | 1.65.0 | 7 |
 | `@tiptap/core`, `@tiptap/extension-collaboration` | 3.33.1 | 10 |
 | `@fontsource-variable/recursive` | 5.3.0 | 12 |
