@@ -1,15 +1,25 @@
-import { expect, test } from '@playwright/test';
-import { counts, openBench, reloadBench, retitle, SAVED, search, seed } from './bench.ts';
+import { DEFAULT_SEED } from '@apace/seed';
+import {
+  counts,
+  expectSaved,
+  fixtures,
+  openBench,
+  reloadBench,
+  retitle,
+  type SearchFixture,
+  search,
+  seed,
+} from './bench.ts';
+import { expect, test } from './fixtures.ts';
 
 for (const mode of ['opfs', 'compat'] as const) {
-  test(`a seeded workspace keeps its counts and search hits through a reload (${mode})`, async ({
-    page,
-  }) => {
+  test(`a seeded workspace keeps its counts and search hits through a reload (${mode})`, {
+    tag: mode === 'opfs' ? ['@smoke'] : [],
+  }, async ({ page }) => {
     await openBench(page, mode === 'compat' ? '?store=compat' : '');
-    const status = page.getByRole('status');
-    await expect(status).toHaveText(SAVED[mode]);
+    await expectSaved(page, mode);
 
-    const summary = await seed(page, 1);
+    const summary = await seed(page, DEFAULT_SEED);
     test.info().annotations.push({
       type: 'seed',
       description: `generated in ${Math.round(summary.generateMs)} ms, imported in ${Math.round(summary.importMs)} ms`,
@@ -22,26 +32,23 @@ for (const mode of ['opfs', 'compat'] as const) {
     }
 
     await reloadBench(page);
-    await expect(status).toHaveText(SAVED[mode]);
+    await expectSaved(page, mode);
     expect(await counts(page)).toEqual(seeded);
-    const [{ query, expected }] = summary.searchQueries as [SeedSummaryQuery];
+    const [{ query, expected }] = summary.searchQueries as [SearchFixture];
     expect((await search(page, query, 5))[0]).toBe(expected);
   });
 }
 
-test('an edited page is found by its new title at once, and after a reload', async ({ page }) => {
-  await openBench(page);
-  await expect(page.getByRole('status')).toHaveText(SAVED.opfs);
-  const summary = await seed(page, 1);
-  const [{ query, expected }] = summary.searchQueries as [SeedSummaryQuery];
-  await retitle(page, expected, 'Quasar timeline');
+// On the seeded profile, so this is about editing a workspace rather than making one.
+test('an edited page is found by its new title at once, and after a reload', async ({ seeded }) => {
+  const { searchQueries } = await fixtures(seeded, DEFAULT_SEED);
+  const [{ query, expected }] = searchQueries as [SearchFixture];
+  await retitle(seeded, expected, 'Quasar timeline');
   // Reads wait for pending projections, so the change shows before typing would pause.
-  expect(await search(page, 'quasar', 5)).toEqual([expected]);
-  expect(await search(page, query, 5)).toEqual([]);
+  expect(await search(seeded, 'quasar', 5)).toEqual([expected]);
+  expect(await search(seeded, query, 5)).toEqual([]);
 
-  await reloadBench(page);
-  await expect(page.getByRole('status')).toHaveText(SAVED.opfs);
-  expect(await search(page, 'quas', 5)).toEqual([expected]);
+  await reloadBench(seeded);
+  await expectSaved(seeded);
+  expect(await search(seeded, 'quas', 5)).toEqual([expected]);
 });
-
-type SeedSummaryQuery = Awaited<ReturnType<typeof seed>>['searchQueries'][number];

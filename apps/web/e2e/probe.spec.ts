@@ -1,7 +1,8 @@
 // Calibrates the probes against synthetic work with known costs. If these drift, every number
 // the bench reports is suspect, so they check the probes rather than the app.
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { median, percentile, snapToRefresh } from '../../../bench/stats.ts';
+import { expect, test } from './fixtures.ts';
 import { BENCH_URL } from './urls.ts';
 
 interface Sample {

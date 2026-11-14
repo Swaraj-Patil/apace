@@ -1,38 +1,26 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PLANTED } from '@apace/seed';
-import { expect, type Page, test } from '@playwright/test';
-import { SAVED } from './bench.ts';
-import { BENCH_URL, PRODUCTION_URL } from './urls.ts';
+import { EMBED_PAGES, PLANTED } from '@apace/seed';
+import { expectSaved } from './bench.ts';
+import { embedPath, IMAGE_PATH } from './embed-origin.ts';
+import { expect, test } from './fixtures.ts';
+import { BENCH_URL, EMBED_URL, PRODUCTION_URL } from './urls.ts';
 
 const productionDist = fileURLToPath(new URL('../dist/', import.meta.url));
 
-function collectErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
-  });
-  page.on('pageerror', (error) => errors.push(error.message));
-  return errors;
-}
-
-test('the production build paints the shell with no console errors', async ({ page }) => {
-  const errors = collectErrors(page);
+test('the production build paints the shell', { tag: ['@smoke'] }, async ({ page }) => {
   const response = await page.goto(PRODUCTION_URL);
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle('Apace');
   await expect(page.getByRole('heading', { level: 1, name: 'Apace' })).toBeVisible();
-  expect(errors).toEqual([]);
 });
 
 // The production server applies vercel.json's rewrites and headers, as the deployed site does.
-test('the hosted build opens the store at any route, with no console errors', async ({ page }) => {
-  const errors = collectErrors(page);
+test('the hosted build opens the store at any route', async ({ page }) => {
   const response = await page.goto(`${PRODUCTION_URL}pages/some-page`);
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole('status')).toHaveText(SAVED.opfs);
-  expect(errors).toEqual([]);
+  await expectSaved(page);
 });
 
 test('the hosted build answers a missing asset with 404, and serves wasm as wasm', async ({
@@ -59,6 +47,49 @@ test('no response asks for cross-origin isolation', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(isolating).toEqual([]);
   expect(await page.evaluate(() => window.crossOriginIsolated)).toBe(false);
+});
+
+/**
+ * The other half of the isolation check, from the browser's side: pictures and embeds come from
+ * other origins, and cross-origin isolation would block every one of them. The fixture origin
+ * sends no Cross-Origin-Resource-Policy, so this passes only while the app stays un-isolated.
+ */
+test('a picture and a frame load from another origin', { tag: ['@smoke'] }, async ({ page }) => {
+  await page.goto(PRODUCTION_URL);
+  const frameUrl = new URL(embedPath(1), EMBED_URL).href;
+  const loaded = await page.evaluate(
+    async ([picture, frame]) => {
+      const settle = (element: HTMLImageElement | HTMLIFrameElement) =>
+        new Promise<string>((resolve) => {
+          element.addEventListener('load', () => resolve('load'), { once: true });
+          element.addEventListener('error', () => resolve('error'), { once: true });
+          document.body.append(element);
+        });
+      const image = Object.assign(document.createElement('img'), { src: picture });
+      const embed = Object.assign(document.createElement('iframe'), { src: frame });
+      const [pictureEvent, frameEvent] = await Promise.all([settle(image), settle(embed)]);
+      return { pictureEvent, frameEvent, width: image.naturalWidth };
+    },
+    [new URL(IMAGE_PATH, EMBED_URL).href, frameUrl] as const,
+  );
+
+  expect(loaded).toEqual({ pictureEvent: 'load', frameEvent: 'load', width: 320 });
+  // A blocked frame commits an error page instead, which has no heading of its own.
+  await expect(
+    page.frameLocator(`iframe[src="${frameUrl}"]`).getByRole('heading', { level: 1 }),
+  ).toHaveText('Embed 1');
+});
+
+test('the fixture origin serves only the pages the seed points at', async ({ request }) => {
+  for (const number of [1, EMBED_PAGES]) {
+    expect((await request.get(new URL(embedPath(number), EMBED_URL).href)).status()).toBe(200);
+  }
+  const missing = await request.get(new URL(embedPath(EMBED_PAGES + 1), EMBED_URL).href);
+  expect(missing.status()).toBe(404);
+  const picture = await request.get(new URL(IMAGE_PATH, EMBED_URL).href);
+  expect(picture.headers()['content-type']).toBe('image/svg+xml');
+  // Nothing it sends may claim a resource policy, which is what the app's loads depend on.
+  expect(picture.headers()['cross-origin-resource-policy']).toBeUndefined();
 });
 
 test('bench hooks and the seed generator exist only in bench builds', async ({ page }) => {

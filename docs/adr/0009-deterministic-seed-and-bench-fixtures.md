@@ -48,7 +48,7 @@ So it can use only what browsers, workers and Node all provide: no Node APIs and
   - The fixtures pair each word, and its four-letter prefix, with its page as the expected top hit: 24 queries.
 - **Nothing touches the network.**
   - Images are 20 generated SVGs and 4 SVG covers, each known by a 64-bit hash of its bytes. Step 15 decides how the store addresses assets by content, and the seed will follow it.
-  - Embeds point at `http://localhost:4312/embed/<n>.html`, and links at example.com.
+  - Embeds point at `http://localhost:4312/embed/<n>.html`, one of 12 pages, and links at example.com. The end-to-end suite serves that origin itself, from `apps/web/e2e/embed-origin.ts`, so an embed loads something real while nothing leaves the machine.
   - Page icons are emoji until step 19's picker adds its own glyphs.
 - **Output.**
   - `seedRecords(plan)` yields `{ docId, kind, update }` records. The first is the workspace doc, id `workspace`, which holds the page tree. One record per page follows, in plan order.

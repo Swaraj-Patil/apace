@@ -21,7 +21,7 @@ export {
   type Task,
   TODAY,
 } from './databases.ts';
-export { BLOCK_MIX, EMBED_ORIGIN, LINK_ORIGIN, pageContent } from './pages.ts';
+export { BLOCK_MIX, EMBED_ORIGIN, EMBED_PAGES, LINK_ORIGIN, pageContent } from './pages.ts';
 export {
   EPOCH,
   FAVORITE_PAGES,

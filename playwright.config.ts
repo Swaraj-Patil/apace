@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
-import { BENCH_PORT, BENCH_URL, PRODUCTION_PORT, PRODUCTION_URL } from './apps/web/e2e/urls.ts';
+import {
+  BENCH_PORT,
+  BENCH_URL,
+  EMBED_PORT,
+  EMBED_URL,
+  PRODUCTION_PORT,
+  PRODUCTION_URL,
+} from './apps/web/e2e/urls.ts';
 
 // `pnpm e2e` builds both bundles first; these servers only serve them.
 export default defineConfig({
@@ -34,6 +41,12 @@ export default defineConfig({
     {
       command: `node bench/serve.ts --root apps/web/dist-bench --port ${BENCH_PORT}`,
       url: BENCH_URL,
+      reuseExistingServer: false,
+    },
+    {
+      // Another origin, for the pictures and frames the app has to be able to load from one.
+      command: `node apps/web/e2e/embed-origin.ts --port ${EMBED_PORT}`,
+      url: `${EMBED_URL}embed/1.html`,
       reuseExistingServer: false,
     },
   ],

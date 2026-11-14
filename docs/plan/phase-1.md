@@ -56,7 +56,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [x] 5. Seed generator
 - [x] 6. Seed import and projections
 - [x] 7. Bench harness
-- [ ] 8. End-to-end smoke suite
+- [x] 8. End-to-end smoke suite
 - [ ] 9. CI
 - [ ] 10. Spike: the 3,000-block page in TipTap with Yjs
 - [ ] 11. Editor foundation
@@ -392,6 +392,14 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 **Activates:** none.
 
 **Done when:** tests pass.
+
+**Deviation:**
+- **The guard found a real console error**, so this step fixed one. Taking the workspace over from another tab logs `NoModificationAllowedError` from the OPFS pool on each retry, because the pool prints every failure as well as throwing it, and a handoff is expected to find the handles busy. The pool is now opened with its logging off, and ADR 0003 says why.
+- **The seeded profile is copied for each test.** One profile per worker is seeded and kept between runs; each test that asks for it gets its own copy, which costs about 0.3 s instead of the 4.5 s a seed costs, and keeps a test that edits the workspace from handing the next one a changed one.
+- **The smoke subset is the existing specs, tagged**, rather than a separate suite that would duplicate them. Five tests carry `@smoke`: the production build boots, the bench build seeds and keeps it through a reload, the lock handoff, compatibility mode, and the cross-origin picture and frame.
+- **The fixture origin is the seed's own embed origin.** `apps/web/e2e/embed-origin.ts` serves `http://localhost:4312`, the origin `packages/seed` writes into embed blocks, so step 15's embeds already have somewhere real to point.
+- **The suite's own machinery has tests**, in `apps/web/e2e/fixtures.spec.ts`: the guard catches a console error, an unhandled rejection and an uncaught throw, and a seeded profile arrives without the previous test's edits.
+- **No fixture for a fresh non-persistent context.** The `fresh` fixture is a profile on disk, because that is the stronger claim: what the store writes has to survive a browser, not just a reload.
 
 ### 9. CI
 

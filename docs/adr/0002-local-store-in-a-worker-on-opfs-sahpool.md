@@ -40,7 +40,8 @@ The main thread must never wait on storage.
 
 ## How it's verified
 
-- End-to-end: writes survive reloads (`apps/web/e2e/store.spec.ts`). No response sends COOP or COEP, and `crossOriginIsolated` is false (`apps/web/e2e/shell.spec.ts`).
+- End-to-end: writes survive reloads, on a browser profile of its own, so they have to reach disk (`apps/web/e2e/store.spec.ts`).
+- No response sends COOP or COEP, and `crossOriginIsolated` is false. A picture and a frame then load into the app from a fixture server on another origin, which sends no resource policy of its own: cross-origin isolation would block both, so this is the same promise checked from the browser's side (`apps/web/e2e/shell.spec.ts`).
 - Unit tests in Node against the real SQLite build (`apps/web/src/store/worker/log.test.ts`):
   - migrations, and refusal of a newer schema;
   - a fast-check property that any mix of appends and compactions loads back to the same Yjs doc;

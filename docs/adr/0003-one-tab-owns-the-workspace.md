@@ -17,6 +17,7 @@ The OPFS pool holds exclusive file handles for as long as it's open, so two tabs
   - closes the database and pauses the pool, which releases the handles but keeps the files;
   - says "released" on a BroadcastChannel.
 - The new owner retries claiming the handles for up to 3 s. In compatibility mode it first waits up to 3 s for the "released" message, because nothing else stops two tabs writing IndexedDB at the same time.
+- The OPFS pool is opened with its own logging off. A handoff is expected to find the handles busy until the other tab lets them go, and the pool prints every such failure to the console as well as throwing it. The throw is what this worker acts on: it either retries or puts the reason in the status line, so the console stays for problems nobody planned for.
 - Either tab can take the workspace back the same way.
 - A page stops its worker on `pagehide`, so a reload reclaims the workspace at once. A page restored from the back-forward cache reloads.
 
@@ -35,5 +36,6 @@ End-to-end tests in `apps/web/e2e/store.spec.ts`, run in both OPFS and compatibi
 - "Use it here" moves the workspace, and the first tab reports the move and refuses writes.
 - No write is lost across the handoff, and the first tab can take the workspace back.
 - Reloads never show "Open in another tab".
+- The suite fails any test on a console error, so a handoff that started logging one would fail these.
 
 These passed 5 repeated runs without a failure when introduced.

@@ -14,6 +14,8 @@ import { ADJECTIVES, CALLOUT_ICONS, CODE_LINES, LANGUAGES, NOUNS, VERBS } from '
 
 /** Embeds point at a fixed local origin, so even a failed load never leaves the machine. */
 export const EMBED_ORIGIN = 'http://localhost:4312';
+/** How many embed pages that origin has to offer, at `/embed/1.html` through `/embed/N.html`. */
+export const EMBED_PAGES = 12;
 /** Links use a domain reserved for examples. Nothing follows them unless someone clicks. */
 export const LINK_ORIGIN = 'https://example.com';
 
@@ -198,7 +200,7 @@ export function pageContent(plan: WorkspacePlan, index: number): Page {
         return;
       }
       case 'embed': {
-        const url = `${EMBED_ORIGIN}/embed/${random.int(1, 12)}.html`;
+        const url = `${EMBED_ORIGIN}/embed/${random.int(1, EMBED_PAGES)}.html`;
         add('embed', 0, { url, height: random.pick([360, 480]) }, []);
         return;
       }

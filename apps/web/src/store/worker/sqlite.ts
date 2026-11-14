@@ -44,11 +44,15 @@ export async function claimPool(
     await paused.unpauseVfs();
     return paused;
   }
-  const options: PoolOptions & { forceReinitIfPreviouslyFailed: boolean } = {
+  const options: PoolOptions & { forceReinitIfPreviouslyFailed: boolean; verbosity: number } = {
     name: 'apace',
     directory: '.apace',
     preserveOnInitFailure: true,
     forceReinitIfPreviouslyFailed: true,
+    // Quiet. The pool prints every failure to the console as well as throwing it, and a
+    // handoff is expected to fail here until the other tab lets its handles go. Each error
+    // still reaches this worker, which either retries it or shows it in the status line.
+    verbosity: 0,
   };
   return sqlite3.installOpfsSAHPoolVfs(options);
 }

@@ -7,7 +7,7 @@ import {
 } from '@apace/model';
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 import * as Y from 'yjs';
-import { EMBED_ORIGIN } from './pages.ts';
+import { EMBED_ORIGIN, EMBED_PAGES } from './pages.ts';
 import {
   FAVORITE_PAGES,
   LARGE_PAGE_BLOCKS,
@@ -176,7 +176,11 @@ describe('the workspace', () => {
           expect(block.attrs.height).toBeGreaterThan(0);
         }
         if (block.type === 'embed') {
-          expect(String(block.attrs.url).startsWith(`${EMBED_ORIGIN}/`)).toBe(true);
+          // Every embed names a page the fixture origin serves, so none of them can 404.
+          const page = /^(.+)\/embed\/(\d+)\.html$/.exec(String(block.attrs.url));
+          expect(page?.[1], String(block.attrs.url)).toBe(EMBED_ORIGIN);
+          expect(Number(page?.[2])).toBeGreaterThanOrEqual(1);
+          expect(Number(page?.[2])).toBeLessThanOrEqual(EMBED_PAGES);
           embeds++;
         }
       }

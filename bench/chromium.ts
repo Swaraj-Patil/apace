@@ -115,25 +115,35 @@ interface SeedMarker {
   readonly generatorVersion: number;
 }
 
-/** Seeds the workspace, but only when the seed or the generator has changed since last time. */
+/**
+ * Whether a profile still has to be seeded. Reading the marker needs no browser, so a caller
+ * that would have to start one can ask first.
+ */
+export async function needsSeeding(profile: string, marker: SeedMarker): Promise<boolean> {
+  try {
+    const previous = JSON.parse(await readFile(join(profile, 'seeded.json'), 'utf8')) as SeedMarker;
+    return previous.seed !== marker.seed || previous.generatorVersion !== marker.generatorVersion;
+  } catch {
+    // No marker, or an unreadable one: seed again.
+    return true;
+  }
+}
+
+/**
+ * Seeds the workspace, but only when the seed or the generator has changed since last time.
+ * It takes any open page with the bench hooks, so the end-to-end suite seeds its own profiles
+ * through this one marker.
+ */
 export async function ensureSeeded(
-  bench: BenchPage,
+  bench: { readonly page: Page },
   profile: string,
   marker: SeedMarker,
 ): Promise<boolean> {
-  const markerPath = join(profile, 'seeded.json');
-  try {
-    const previous = JSON.parse(await readFile(markerPath, 'utf8')) as SeedMarker;
-    if (previous.seed === marker.seed && previous.generatorVersion === marker.generatorVersion) {
-      return false;
-    }
-  } catch {
-    // No marker, or an unreadable one: seed again.
-  }
+  if (!(await needsSeeding(profile, marker))) return false;
   await bench.page.evaluate(
     (seed) => (window as BenchWindow).__bench?.store.seed(seed),
     marker.seed,
   );
-  await writeFile(markerPath, `${JSON.stringify(marker, null, 2)}\n`);
+  await writeFile(join(profile, 'seeded.json'), `${JSON.stringify(marker, null, 2)}\n`);
   return true;
 }

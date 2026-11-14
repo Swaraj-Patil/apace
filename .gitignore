@@ -9,6 +9,7 @@ apps/web/dist-bench/
 # Test output
 test-results/
 playwright-report/
+apps/web/e2e/.profile/
 
 # Bench output. Gate reports are kept; everything else is local.
 bench/.profile/

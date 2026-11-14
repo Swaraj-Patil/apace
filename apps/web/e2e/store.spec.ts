@@ -1,51 +1,53 @@
-import { expect, test } from '@playwright/test';
 import {
   checkpoint,
+  expectSaved,
   openBench,
   readText,
   reloadBench,
-  SAVED,
   statusHistory,
+  statusLine,
   writeText,
 } from './bench.ts';
+import { expect, test } from './fixtures.ts';
 
-test('writes survive reloads, and a reload gets the workspace back at once', async ({ page }) => {
-  await openBench(page);
-  const status = page.getByRole('status');
-  await expect(status).toHaveText(SAVED.opfs);
-  await writeText(page, 'doc-1', 'first');
+// On a profile of its own, so the writes have to reach disk rather than a browser the test
+// happens to keep alive.
+test('writes survive reloads, and a reload gets the workspace back at once', async ({ fresh }) => {
+  await openBench(fresh);
+  await expectSaved(fresh);
+  await writeText(fresh, 'doc-1', 'first');
 
   for (const more of [', second', ', third']) {
-    await reloadBench(page);
-    await expect(status).toHaveText(SAVED.opfs);
-    await writeText(page, 'doc-1', more);
+    await reloadBench(fresh);
+    await expectSaved(fresh);
+    await writeText(fresh, 'doc-1', more);
   }
 
-  await reloadBench(page);
-  await expect(status).toHaveText(SAVED.opfs);
-  expect(await readText(page, 'doc-1')).toBe('first, second, third');
-  expect(await statusHistory(page)).not.toContain('open-elsewhere');
+  await reloadBench(fresh);
+  await expectSaved(fresh);
+  expect(await readText(fresh, 'doc-1')).toBe('first, second, third');
+  expect(await statusHistory(fresh)).not.toContain('open-elsewhere');
 });
 
 for (const mode of ['opfs', 'compat'] as const) {
-  test(`a second tab waits 1.5 s, then takes over without losing a write (${mode})`, async ({
-    context,
-  }) => {
+  test(`a second tab waits 1.5 s, then takes over without losing a write (${mode})`, {
+    tag: mode === 'opfs' ? ['@smoke'] : [],
+  }, async ({ context }) => {
     const query = mode === 'compat' ? '?store=compat' : '';
     const first = await context.newPage();
     await openBench(first, query);
-    await expect(first.getByRole('status')).toHaveText(SAVED[mode]);
+    await expectSaved(first, mode);
     await writeText(first, 'doc-1', 'from the first tab');
 
     const second = await context.newPage();
     const started = Date.now();
     await openBench(second, query);
-    await expect(second.getByRole('status')).toContainText('Open in another tab');
+    await expect(statusLine(second)).toContainText('Open in another tab');
     expect(Date.now() - started).toBeGreaterThanOrEqual(1500);
 
     await second.getByRole('button', { name: 'Use it here' }).click();
-    await expect(second.getByRole('status')).toHaveText(SAVED[mode]);
-    await expect(first.getByRole('status')).toContainText('Moved to another tab');
+    await expectSaved(second, mode);
+    await expect(statusLine(first)).toContainText('Moved to another tab');
     expect(await readText(second, 'doc-1')).toBe('from the first tab');
     await expect(writeText(first, 'doc-1', ' (refused)')).rejects.toThrow(
       'The workspace moved to another tab.',
@@ -53,30 +55,29 @@ for (const mode of ['opfs', 'compat'] as const) {
 
     await writeText(second, 'doc-1', ', then the second');
     await first.getByRole('button', { name: 'Use it here' }).click();
-    await expect(first.getByRole('status')).toHaveText(SAVED[mode]);
-    await expect(second.getByRole('status')).toContainText('Moved to another tab');
+    await expectSaved(first, mode);
+    await expect(statusLine(second)).toContainText('Moved to another tab');
     expect(await readText(first, 'doc-1')).toBe('from the first tab, then the second');
   });
 }
 
-test('compatibility mode keeps writes through a snapshot and the log after it', async ({
-  page,
-}) => {
+test('compatibility mode keeps writes through a snapshot and the log after it', {
+  tag: ['@smoke'],
+}, async ({ page }) => {
   await openBench(page, '?store=compat');
-  const status = page.getByRole('status');
-  await expect(status).toHaveText(SAVED.compat);
+  await expectSaved(page, 'compat');
   await writeText(page, 'doc-1', 'in the snapshot');
   await checkpoint(page);
   await writeText(page, 'doc-1', ', then in the log');
 
   await reloadBench(page);
-  await expect(status).toHaveText(SAVED.compat);
+  await expectSaved(page, 'compat');
   expect(await readText(page, 'doc-1')).toBe('in the snapshot, then in the log');
 });
 
 test('with no storage at all, the store says it cannot save', async ({ page }) => {
   await openBench(page, '?store=unsaved');
-  const status = page.getByRole('status');
+  const status = statusLine(page);
   await expect(status).toHaveText('Not saved: this browser blocks storage');
   await writeText(page, 'doc-1', 'only in memory');
   expect(await readText(page, 'doc-1')).toBe('only in memory');
