@@ -1,0 +1,96 @@
+name: CI
+
+# Every push, and by hand. There are no pull requests: a phase branch merges into main once its
+# gate passes.
+on:
+  push:
+  workflow_dispatch:
+
+# One run per branch. A newer push replaces a run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Check, test and measure
+    # Pinned. The bench reads one run's numbers against another's, which only means something
+    # while the machine stays the same. bench/budgets.json names this runner too, and a test
+    # fails if the two ever disagree.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out, with history
+        uses: actions/checkout@v7.0.1
+        with:
+          # The A/B run builds the base in a worktree, so it needs the commits that hold it.
+          fetch-depth: 0
+
+      - name: Install pnpm and Node
+        # pnpm comes from packageManager in package.json and Node from .node-version, so CI runs
+        # the versions this repository pins. The install is frozen and the store is cached.
+        uses: pnpm/setup@v3.2.0
+        with:
+          cache: true
+          require-lockfile: true
+
+      - name: Restore the browser
+        id: browser
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium
+        if: steps.browser.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Chromium's system packages
+        if: steps.browser.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Decide what to run
+        id: plan
+        run: node bench/ci.ts >> "$GITHUB_OUTPUT"
+
+      # A phase branch with every step ticked runs the gate, which runs all of the below and
+      # then decides whether the phase can merge. Any other branch runs them one at a time, so
+      # a failure says which one failed.
+      - name: Gate
+        if: steps.plan.outputs.gate == 'true'
+        env:
+          GATE_BRANCH: ${{ github.ref_name }}
+        run: node bench/gate.ts --phase ${{ steps.plan.outputs.phase }} --base ${{ steps.plan.outputs.base }}
+
+      - name: Check
+        if: steps.plan.outputs.gate != 'true'
+        run: pnpm check
+
+      - name: Test
+        if: steps.plan.outputs.gate != 'true'
+        run: pnpm test
+
+      - name: End-to-end tests
+        if: steps.plan.outputs.gate != 'true'
+        run: pnpm e2e
+
+      - name: Bench
+        if: steps.plan.outputs.gate != 'true'
+        run: node bench/run.ts --phase ${{ steps.plan.outputs.phase }}
+
+      - name: Bench A/B
+        if: steps.plan.outputs.gate != 'true'
+        run: node bench/ab.ts --phase ${{ steps.plan.outputs.phase }} --base ${{ steps.plan.outputs.base }}
+
+      - name: Keep the reports and traces
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: reports-${{ github.run_id }}
+          path: |
+            bench/results/
+            bench/traces/
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 30

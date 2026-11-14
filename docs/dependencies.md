@@ -1,6 +1,6 @@
 # Dependencies
 
-Every dependency is pinned to an exact version, and pnpm refuses any release less than a day old. Each entry says why the package is here.
+Every dependency is pinned to an exact version, and pnpm refuses any release less than a day old. Each entry says why the package is here. The GitHub Actions that CI runs are pinned the same way, and listed at the end.
 
 ## App
 
@@ -28,3 +28,12 @@ Every dependency is pinned to an exact version, and pnpm refuses any release les
 - `fast-check` 4.10.2: property-based tests that generate random edit histories and check what must hold for all of them.
 - `@playwright/test` 1.65.0: end-to-end tests that drive Chromium.
 - `playwright` 1.65.0: the same browser automation as a library rather than a test runner, which the bench harness uses to drive Chromium with a persistent profile, a CPU throttle and Chrome traces.
+
+## Continuous integration
+
+These aren't packages: they're the actions `.github/workflows/ci.yml` uses, pinned to exact releases rather than to a moving major tag, so a run of CI is as repeatable as a run of the bench.
+
+- `actions/checkout` 7.0.1: checks the repository out with its whole history, which the A/B run needs to build the base in a worktree.
+- `pnpm/setup` 3.2.0: installs pnpm from the `packageManager` field and Node from `.node-version`, caches the pnpm store and runs a frozen install, so CI uses the versions this repository pins.
+- `actions/cache` 6.1.0: keeps the downloaded Chromium between runs, which is most of the time a cold run spends.
+- `actions/upload-artifact` 7.0.2: keeps the bench reports and the traces of any failure.

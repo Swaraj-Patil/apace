@@ -421,6 +421,14 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 
 **Done when:** the workflow passes on GitHub for the pushed branch. The step stays unticked until that run is green.
 
+**Status:** built and verified as far as a local machine can verify it, 2026-11-14. The box stays unticked until a run on GitHub is green.
+
+**Deviation:**
+- **What CI runs is decided in `bench/ci.ts`, not in YAML**, so the rules have tests: a phase branch whose plan has every step ticked runs the gate, anything else runs the five commands, and the A/B base is main once main has the harness and the commit before this one until then. `bench/workflow.test.ts` then checks the workflow against the repository: the runner `budgets.json` names, an exact version on every action, the history the A/B needs, and every command present.
+- **The calibration workload is Node's, not the browser's.** Twenty million rounds of integer arithmetic, timed five times before each run's browser starts, median recorded in the report. It measures one core's arithmetic, which is what a main thread mostly does, and a pinned checksum keeps the work identical on every machine.
+- **One action does pnpm and Node.** `pnpm/setup` reads `packageManager` and `.node-version`, caches the store and installs frozen, which is three steps in one and no second place to write a version down.
+- **The job cap is 45 minutes.** A full run takes about a third of that.
+
 ### 10. Spike: the 3,000-block page in TipTap with Yjs
 
 **Question:** can TipTap 3 with Yjs open the seeded 3,000-block page with content painted in under 100 ms p95, make it editable in under 200 ms p95, and keep keystrokes under 16 ms p95, at the CI throttle? If so, which rendering strategy gets there?

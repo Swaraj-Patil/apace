@@ -1,4 +1,6 @@
-// The shape of a bench result, and the table it prints.
+// The shape of a bench result, and the tables it prints: fixed-width for a terminal, markdown
+// for a CI job summary.
+import { appendFile } from 'node:fs/promises';
 import type { Budgets, MetricBudget } from './budgets.ts';
 import { limitMs } from './budgets.ts';
 import type { Comparison } from './compare.ts';
@@ -27,6 +29,8 @@ export interface RunResult {
   readonly cpu: string;
   readonly cores: number;
   readonly cpuThrottle: number;
+  /** How long this machine took over the fixed calibration workload, in milliseconds. */
+  readonly calibrationMs: number;
   readonly seed: number;
   readonly generatorVersion: number;
   readonly seeded: boolean;
@@ -46,8 +50,20 @@ export function formatLimit(budget: MetricBudget, refreshPeriodMs: number): stri
   return `${relation} ${ms.toFixed(ms < 100 ? 1 : 0)} ms`;
 }
 
-/** The run as a table: metric, budget, p50, p95, samples, result. */
-export function formatRun(run: RunResult, budgets: Budgets, comparisons?: Comparison[]): string {
+/** What the machine was, so two runs can be told apart by more than their numbers. */
+export function describeMachine(run: RunResult): string {
+  return (
+    `${run.cpu}, ${run.cores} cores, CPU throttle ${run.cpuThrottle}×, ` +
+    `calibration ${run.calibrationMs.toFixed(1)} ms, seed ${run.seed}`
+  );
+}
+
+/** The header and rows of the run's table: metric, budget, p50, p95, samples, result. */
+export function rowsOf(
+  run: RunResult,
+  budgets: Budgets,
+  comparisons?: Comparison[],
+): { header: string[]; rows: string[][] } {
   const byMetric = new Map(comparisons?.map((entry) => [entry.metric, entry]));
   const rows = run.metrics.map((result) => {
     const budget = budgets.metrics[result.metric];
@@ -68,6 +84,12 @@ export function formatRun(run: RunResult, budgets: Budgets, comparisons?: Compar
   const header = ['metric', 'budget', 'p50', 'p95', 'samples', 'result'];
   if (comparisons !== undefined) header.push('against the base');
   else if (run.missing.length > 0) header.push('why');
+  return { header, rows };
+}
+
+/** The run as a table: metric, budget, p50, p95, samples, result. */
+export function formatRun(run: RunResult, budgets: Budgets, comparisons?: Comparison[]): string {
+  const { header, rows } = rowsOf(run, budgets, comparisons);
   const widths = header.map((title, column) =>
     Math.max(title.length, ...rows.map((row) => (row[column] ?? '').length)),
   );
@@ -95,4 +117,57 @@ export function describeChange(change: Comparison): string {
       return `${sign}${percent}% (${change.verdict})`;
     }
   }
+}
+
+/** One markdown table row, with the pipes its cells might hold escaped. */
+function markdownRow(cells: readonly string[]): string {
+  return `| ${cells.map((cell) => cell.replaceAll('|', '\\|') || ' ').join(' | ')} |`;
+}
+
+export function markdownTable(header: readonly string[], rows: readonly string[][]): string {
+  return [
+    markdownRow(header),
+    markdownRow(header.map(() => '---')),
+    ...rows.map((row) => markdownRow(header.map((_, column) => row[column] ?? ''))),
+  ].join('\n');
+}
+
+/** The run as markdown, for a CI job summary. */
+export function summaryOfRun(run: RunResult, budgets: Budgets, comparisons?: Comparison[]): string {
+  const { header, rows } = rowsOf(run, budgets, comparisons);
+  const where = `${run.branch} at ${run.sha.slice(0, 8)}${run.dirty ? ' (dirty)' : ''}`;
+  return [`### Bench: ${where}`, '', describeMachine(run), '', markdownTable(header, rows)].join(
+    '\n',
+  );
+}
+
+/** The A/B comparison as markdown, for a CI job summary. */
+export function summaryOfComparisons(
+  comparisons: readonly Comparison[],
+  base: string,
+  compared: boolean,
+): string {
+  const cell = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} ms`);
+  return [
+    `### A/B against ${base}`,
+    '',
+    compared
+      ? markdownTable(
+          ['metric', 'base', 'branch', 'change'],
+          comparisons.map((change) => [
+            change.metric,
+            cell(change.base),
+            cell(change.head),
+            describeChange(change),
+          ]),
+        )
+      : `${base} has no bench harness, so there is nothing to compare against.`,
+  ].join('\n');
+}
+
+/** Appends markdown to the CI job summary. Anywhere else, there is nowhere to append to. */
+export async function appendSummary(markdown: string): Promise<void> {
+  const path = process.env.GITHUB_STEP_SUMMARY;
+  if (path === undefined || path === '') return;
+  await appendFile(path, `${markdown}\n\n`);
 }

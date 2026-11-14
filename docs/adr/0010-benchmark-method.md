@@ -46,6 +46,10 @@ This matters more than it looks. A click whose paint is held back by 30 ms of wo
 
 A nearest-rank p95 has a property worth stating plainly: with one frame in twenty over budget, the p95 sits just below the slow ones and the metric passes. Anything worse than one in twenty is caught. That is what a p95 budget means, and it's the statistic the brief asks for.
 
+It has a second property, at the other end. A metric of ten samples has no ninety-fifth percentile to find, so its p95 is its slowest sample. `cold-start` is measured over ten reloads, as the brief asks, so the number it reports is the slowest of the ten and carries that sample's whole variance. Measured on an Apple M4, ten reloads of the same build give a median of 42 to 46 ms and a slowest reload of 45 to 81 ms. The spread is the store opening: a reload has to take back the OPFS handles the previous page let go of.
+
+Two consequences. A/B comparisons of `cold-start` move by twenty per cent between runs of identical code, which is why the A/B rule forgives a change smaller than the base's own spread (ADR 0011). And the budget it is judged against, 1,500 ms, has room for that: the slowest reload measured is a twentieth of it.
+
 ### Scrolling
 
 `Input.synthesizeScrollGesture` drives each declared view. The gaps between painted frames are snapped to whole refresh periods: a frame that arrives on time is one period, one that misses a refresh is two. Every frame counts as at least one period, so a browser drawing faster than the display can't make a run look better than it is. The worst view's p95 is the metric.
@@ -96,4 +100,4 @@ The arithmetic has unit tests of its own in `bench/stats.test.ts`: percentiles r
 
 `bench/budgets.json` is checked for sense on every run: positive limits, samples and throttle, a known statistic, and a feature for every metric.
 
-Measured on an Apple M4 with the throttle at 1×, `cold-start` reads p50 43 ms and p95 66 ms against its 1,500 ms budget, with the shell as it stands today.
+Measured on an Apple M4 with the throttle at 1×, `cold-start` reads a p50 of 42 to 46 ms and a p95 — the slowest of its ten reloads — of 45 to 81 ms, against its 1,500 ms budget, with the shell as it stands today.

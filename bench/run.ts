@@ -10,8 +10,16 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { GENERATOR_VERSION } from '@apace/seed';
 import { type Budgets, metricsForPhase, readBudgets, withinBudget } from './budgets.ts';
+import { calibrate } from './calibration.ts';
 import { ensureSeeded, launchBench, PROFILE_ROOT } from './chromium.ts';
-import { formatRun, type MetricResult, type RunResult } from './report.ts';
+import {
+  appendSummary,
+  describeMachine,
+  formatRun,
+  type MetricResult,
+  type RunResult,
+  summaryOfRun,
+} from './report.ts';
 import { countedValue, SCENARIOS } from './scenarios.ts';
 import { readHostRules, serveStatic } from './serve.ts';
 import { percentile } from './stats.ts';
@@ -43,6 +51,8 @@ export interface BenchOptions {
 /** Measures one build. The caller builds it and decides where its profile lives. */
 export async function measure(options: BenchOptions): Promise<RunResult> {
   const { budgets } = options;
+  // Timed before the browser starts, so nothing else on this machine is running.
+  const calibrationMs = calibrate();
   const url = `http://127.0.0.1:${options.port}/`;
   const server = await serveStatic(options.dist, options.port, await readHostRules());
   const bench = await launchBench({
@@ -122,6 +132,7 @@ export async function measure(options: BenchOptions): Promise<RunResult> {
       cpu: cpus()[0]?.model ?? 'unknown CPU',
       cores: cpus().length,
       cpuThrottle: budgets.ci.cpuThrottle,
+      calibrationMs,
       seed: budgets.seed,
       generatorVersion: GENERATOR_VERSION,
       seeded,
@@ -172,10 +183,11 @@ if (import.meta.main) {
   });
   const path = await saveRun(run);
 
-  console.log(`${run.cpu}, ${run.cores} cores, CPU throttle ${run.cpuThrottle}×, seed ${run.seed}`);
+  console.log(describeMachine(run));
   console.log(`features: ${run.features.join(', ') || 'none'}\n`);
   console.log(formatRun(run, budgets));
   console.log(`\nSaved to ${path}`);
+  await appendSummary(summaryOfRun(run, budgets));
 
   const over = run.metrics.filter((metric) => !metric.withinBudget);
   const owed = metricsForPhase(budgets, phase).filter((metric) =>

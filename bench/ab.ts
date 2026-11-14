@@ -15,7 +15,7 @@ import { readBudgets } from './budgets.ts';
 import { PROFILE_ROOT } from './chromium.ts';
 import { type Comparison, compareAll } from './compare.ts';
 import type { RunResult } from './report.ts';
-import { describeChange } from './report.ts';
+import { appendSummary, describeChange, summaryOfComparisons } from './report.ts';
 import { buildBench, DEFAULT_PORT, measure } from './run.ts';
 
 const exec = promisify(execFile);
@@ -115,6 +115,7 @@ if (import.meta.main) {
     if (baseDist === undefined) {
       console.log(`\n${base} has no bench harness, so there is nothing to compare against.`);
     }
+    await appendSummary(summaryOfComparisons(comparisons, base, baseDist !== undefined));
 
     const worse = comparisons.filter((change) => change.verdict === 'worse');
     if (worse.length > 0) {
