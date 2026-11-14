@@ -10,3 +10,7 @@ savePrefix: ''
 # adding it to an exclusion list.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+
+# Fail the install, rather than warn, when Node isn't the version the engines fields name.
+# A build on the wrong Node then stops instead of shipping.
+engineStrict: true

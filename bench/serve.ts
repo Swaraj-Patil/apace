@@ -27,8 +27,11 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
 /** What Vercel sends for a static file that no header rule overrides. */
 const DEFAULT_CACHE_CONTROL = 'public, max-age=0, must-revalidate';
 
-/** The repo's Vercel configuration. */
-export const VERCEL_CONFIG = fileURLToPath(new URL('../vercel.json', import.meta.url));
+/**
+ * The web app's Vercel configuration. The Vercel project's Root Directory is apps/web, and
+ * Vercel reads vercel.json from there.
+ */
+export const VERCEL_CONFIG = fileURLToPath(new URL('../apps/web/vercel.json', import.meta.url));
 
 /** Settings that only shape the build, so a server can ignore them. */
 const BUILD_SETTINGS = new Set([

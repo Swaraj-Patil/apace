@@ -14,7 +14,7 @@ Every dependency is pinned to an exact version, and pnpm refuses any release les
 
 ## Build
 
-- `vite` 8.3.8: the dev server and production bundler for the web app.
+- `vite` 8.3.8: the dev server and production bundler for the web app; the bench's hosting tests also read the web app's resolved build settings through it.
 - `@vitejs/plugin-react` 6.3.0: React's JSX transform and fast refresh inside Vite.
 - `typescript` 6.0.3: type checking only, since Vite and Node strip types themselves.
 - `@types/react` 19.3.0: type definitions for React.
