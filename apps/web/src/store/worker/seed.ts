@@ -1,8 +1,15 @@
 // Bench builds only. The store worker imports this behind import.meta.env.MODE === 'bench', so
 // production bundles never contain the seed generator.
+
+import type { SeedFixtures } from '@apace/seed';
 import { planWorkspace, seedFixtures, seedRecords } from '@apace/seed';
 import type { SeedSummary } from '../api.ts';
 import type { ImportRecord } from './projector.ts';
+
+/** The pages the bench measures. Planning the workspace is cheap; generating it isn't. */
+export function fixturesFor(seed: number): SeedFixtures {
+  return seedFixtures(planWorkspace(seed));
+}
 
 /** Generates the seeded workspace in this worker, and hands it to `importRecords`. */
 export async function seedWorkspace(

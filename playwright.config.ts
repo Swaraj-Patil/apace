@@ -9,7 +9,22 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: { trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chromium' } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      testIgnore: /probe\.spec\.ts/,
+    },
+    {
+      // Calibrating the probes means measuring milliseconds, so these run on their own, after
+      // everything else, rather than against four other tests on the same cores.
+      name: 'probe',
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      testMatch: /probe\.spec\.ts/,
+      dependencies: ['chromium'],
+      fullyParallel: false,
+    },
+  ],
   webServer: [
     {
       command: `node bench/serve.ts --root apps/web/dist --port ${PRODUCTION_PORT}`,

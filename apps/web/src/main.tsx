@@ -1,10 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app.tsx';
+import { shellReady } from './perf/index.ts';
 import type { StorageMode } from './store/api.ts';
 import { startStore } from './store/client.ts';
 
 const store = startStore({ storage: storageOverride() });
+
+// The shell counts as interactive once the store accepts writes.
+const storeOpened = store.subscribe(() => {
+  if (store.getStatus().state !== 'ready') return;
+  storeOpened();
+  shellReady('store');
+});
 
 // Leaving the page stops the worker at once, so a reload can claim the workspace straight away.
 window.addEventListener('pagehide', () => store.shutdown());

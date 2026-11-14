@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "types": ["node"]
+    "types": ["node"],
+    "lib": ["es2024", "dom"]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "fixtures"]

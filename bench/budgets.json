@@ -1,0 +1,142 @@
+{
+  "refreshPeriodMs": 16.667,
+  "ci": {
+    "cpuThrottle": 1,
+    "runner": "ubuntu-24.04"
+  },
+  "viewport": { "width": 1536, "height": 864, "deviceScaleFactor": 1.25 },
+  "seed": 1,
+  "metrics": {
+    "cold-start": {
+      "phase": 1,
+      "feature": "shell",
+      "statistic": "p95",
+      "limit": { "ms": 1500 },
+      "samples": 10,
+      "warmup": 1,
+      "span": "Navigation start to the first painted frame of the interactive shell"
+    },
+    "page-open.typical": {
+      "phase": 1,
+      "feature": "pages",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 60,
+      "warmup": 2,
+      "span": "Click or Enter on a sidebar row to painted content, one open each for 60 pages"
+    },
+    "page-open.large": {
+      "phase": 1,
+      "feature": "pages",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 20,
+      "warmup": 1,
+      "span": "The same, for the 3,000-block page"
+    },
+    "page-editable.large": {
+      "phase": 1,
+      "feature": "editor",
+      "statistic": "p95",
+      "limit": { "ms": 200 },
+      "samples": 20,
+      "warmup": 1,
+      "span": "The same click or Enter to the painted frame where the editor holds the whole 3,000-block page and handles input itself"
+    },
+    "keystroke.typical": {
+      "phase": 1,
+      "feature": "editor",
+      "statistic": "p95",
+      "limit": { "ms": 16 },
+      "samples": 200,
+      "warmup": 10,
+      "excludeIdle": true,
+      "span": "Key event to the end of the frame that paints it, idle wait excluded"
+    },
+    "keystroke.large": {
+      "phase": 1,
+      "feature": "editor",
+      "statistic": "p95",
+      "limit": { "ms": 16 },
+      "samples": 300,
+      "warmup": 10,
+      "excludeIdle": true,
+      "span": "The same, at the top, middle and end of the 3,000-block page"
+    },
+    "scroll": {
+      "phase": 1,
+      "feature": "scroll",
+      "statistic": "p95",
+      "limit": { "refreshPeriods": 1, "inclusive": true },
+      "samples": 240,
+      "warmup": 0,
+      "perViewMs": 5000,
+      "span": "Frame intervals during a synthesized scroll of each declared view, snapped to whole refresh periods, worst view"
+    },
+    "quick-search": {
+      "phase": 1,
+      "feature": "search",
+      "statistic": "p95",
+      "limit": { "ms": 50 },
+      "samples": 10,
+      "warmup": 1,
+      "span": "Input event to painted ranked results, 10 queries typed key by key"
+    },
+    "keystroke.split": {
+      "phase": 1,
+      "feature": "split",
+      "statistic": "p95",
+      "limit": { "ms": 16 },
+      "samples": 200,
+      "warmup": 10,
+      "excludeIdle": true,
+      "span": "Keystroke latency with two panes open"
+    },
+    "page-open.split": {
+      "phase": 1,
+      "feature": "split",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 60,
+      "warmup": 2,
+      "span": "Page open with two panes open"
+    },
+    "database.filter": {
+      "phase": 2,
+      "feature": "database",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 20,
+      "warmup": 1,
+      "span": "Change a filter on the 50,000-row database to the painted view"
+    },
+    "database.sort": {
+      "phase": 2,
+      "feature": "database",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 20,
+      "warmup": 1,
+      "span": "Change a sort on the 50,000-row database to the painted view"
+    },
+    "database.group": {
+      "phase": 2,
+      "feature": "database",
+      "statistic": "p95",
+      "limit": { "ms": 100 },
+      "samples": 20,
+      "warmup": 1,
+      "span": "Change grouping on the 50,000-row database to the painted view"
+    },
+    "database.scroll": {
+      "phase": 2,
+      "feature": "database",
+      "statistic": "p95",
+      "limit": { "refreshPeriods": 1, "inclusive": true },
+      "samples": 240,
+      "warmup": 0,
+      "perViewMs": 5000,
+      "span": "Frame intervals while scrolling each database view, snapped to whole refresh periods, worst view"
+    }
+  }
+}

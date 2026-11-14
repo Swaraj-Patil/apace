@@ -132,6 +132,11 @@ const server = serve<StoreApi, StoreEvents>(self as unknown as DedicatedWorkerGl
       }
       throw new Error('Only bench builds can seed a workspace.');
     }),
+  fixtures: async (seed) => {
+    if (import.meta.env.MODE !== 'bench') throw new Error('Only bench builds have fixtures.');
+    const { fixturesFor } = await import('./seed.ts');
+    return fixturesFor(seed);
+  },
 });
 
 /** Replaces the workspace with these docs. */

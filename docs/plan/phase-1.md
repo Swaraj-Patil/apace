@@ -55,7 +55,7 @@ Every bench run measures all declared metrics. A step's **Activates** line names
 - [x] 4. Model: blocks and page documents
 - [x] 5. Seed generator
 - [x] 6. Seed import and projections
-- [ ] 7. Bench harness
+- [x] 7. Bench harness
 - [ ] 8. End-to-end smoke suite
 - [ ] 9. CI
 - [ ] 10. Spike: the 3,000-block page in TipTap with Yjs
@@ -361,6 +361,18 @@ Steps 1 to 9 are the scaffold. Step 10 is the riskiest spike, scheduled as soon 
 - The probes are calibrated.
 - `pnpm bench:ab` runs.
 - `pnpm gate` runs end to end and fails only on the Phase 1 metrics that aren't declared yet.
+
+**Deviation:**
+- **Idle time is recorded for every span, not only for keystrokes.** Each sample carries the whole span and how much of it was idle, and `budgets.json` names which metrics leave the idle wait out. The calibration forced this: a click whose paint is held back 30 ms does 30 ms of work but spans about 40 ms on a 60 Hz display, because the frame waits for the next refresh. Both numbers are now in the sample.
+- **Two calibration claims had to be restated to stay true.**
+  - A click held back 30 ms can't read "30 ± 2 ms" end to end, for the reason above. The test asserts the work reads 30 ms within 2 ms, and that the whole span is at most one refresh period more.
+  - The key-handler claim is stated as the growth per millisecond added, because the floor it would be measured against, an empty handler, swings between 0.1 and 16.3 ms depending on where the key lands in the frame. Added work still has to read back within 1 ms.
+- **A stall in one frame of twenty is a boundary case for a nearest-rank p95**, which sits just below the slowest 5%. The test asserts that each stall shows in the snapped intervals at the right size and count, and that a stall in one frame of ten reaches the p95. ADR 0010 records what the statistic does and does not catch.
+- **The probe calibration runs in its own Playwright project**, after the functional suite and on its own, because five specs sharing the cores move a millisecond measurement.
+- **Bench hooks with nothing to drive throw and name the step that fills them in**, not only the database ones. The runner measures a metric only when its feature is declared, so it never calls them.
+- **`fixtures(seed)` was added to the store worker**, bench builds only, so a run that skips seeding still knows which pages to open.
+- **The A/B rule lives in `bench/compare.ts`** and `bench/ab.ts` is the command that uses it.
+- **The ratchet also guards** the scroll duration per view, a metric moved to a later phase, a budget that starts passing at its limit, and a metric that stops counting the idle wait.
 
 ### 8. End-to-end smoke suite
 

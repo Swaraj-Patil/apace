@@ -27,3 +27,4 @@ Every dependency is pinned to an exact version, and pnpm refuses any release les
 - `vitest` 4.1.12: unit and property tests, reusing Vite's transform pipeline.
 - `fast-check` 4.10.2: property-based tests that generate random edit histories and check what must hold for all of them.
 - `@playwright/test` 1.65.0: end-to-end tests that drive Chromium.
+- `playwright` 1.65.0: the same browser automation as a library rather than a test runner, which the bench harness uses to drive Chromium with a persistent profile, a CPU throttle and Chrome traces.

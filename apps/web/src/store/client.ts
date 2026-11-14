@@ -4,6 +4,7 @@ import type {
   OpenOptions,
   PageMetaRow,
   SearchHit,
+  SeedFixtures,
   SeedSummary,
   StoreApi,
   StoreEvents,
@@ -33,6 +34,8 @@ export interface Store {
   subscribePageMeta(listener: (pages: readonly PageMetaRow[]) => void): () => void;
   /** Bench builds only: replaces the workspace with the seeded one. */
   seed(seed: number): Promise<SeedSummary>;
+  /** Bench builds only: the pages the bench measures. */
+  fixtures(seed: number): Promise<SeedFixtures>;
   /** Stops the worker at once, which frees the lock and the files for the next page. */
   shutdown(): void;
 }
@@ -99,6 +102,7 @@ export function startStore(options: OpenOptions = {}): Store {
       };
     },
     seed: (seed) => rpc.call('seed', [seed]),
+    fixtures: (seed) => rpc.call('fixtures', [seed]),
     shutdown() {
       rpc.close('The store shut down.');
       worker.terminate();

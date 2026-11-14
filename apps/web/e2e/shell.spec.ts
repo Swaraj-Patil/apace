@@ -77,11 +77,13 @@ test('bench hooks and the seed generator exist only in bench builds', async ({ p
   expect(await page.evaluate(() => '__bench' in window)).toBe(false);
 
   await page.goto(BENCH_URL);
+  // The bench measures a metric only when its feature is declared, so the list is the app's
+  // own account of what it can do. It names the shell, and nothing that isn't built yet.
   await expect
     .poll(() =>
       page.evaluate(
         () => (window as Window & { __bench?: { features: string[] } }).__bench?.features,
       ),
     )
-    .toEqual([]);
+    .toEqual(['shell']);
 });

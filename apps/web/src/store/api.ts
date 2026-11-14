@@ -1,4 +1,5 @@
 // The store worker's interface, shared by the worker and the main thread.
+import type { SeedFixtures } from '@apace/seed';
 
 /** Where this tab keeps the workspace. */
 export type StorageMode = 'opfs' | 'compat' | 'unsaved';
@@ -45,6 +46,8 @@ export interface WorkspaceCounts {
   readonly links: number;
 }
 
+export type { SeedFixtures } from '@apace/seed';
+
 /** What a bench seed wrote, and how long it took. */
 export interface SeedSummary {
   readonly seed: number;
@@ -81,6 +84,11 @@ export interface StoreApi {
   watchTree(on: boolean): Promise<void>;
   /** Bench builds only: replaces the workspace with the seeded one. */
   seed(seed: number): Promise<SeedSummary>;
+  /**
+   * Bench builds only: the pages the bench measures, from the generator's plan. It costs a few
+   * milliseconds, so a run that skips seeding still knows which pages to open.
+   */
+  fixtures(seed: number): Promise<SeedFixtures>;
 }
 
 export interface StoreEvents {

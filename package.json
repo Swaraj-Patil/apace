@@ -12,13 +12,17 @@
     "build:bench": "pnpm --filter @apace/web build:bench",
     "check": "biome check . && tsc -p tsconfig.json && pnpm -r run typecheck",
     "test": "vitest run",
-    "e2e": "pnpm build && pnpm build:bench && playwright test"
+    "e2e": "pnpm build && pnpm build:bench && playwright test",
+    "bench": "node bench/run.ts",
+    "bench:ab": "node bench/ab.ts",
+    "gate": "node bench/gate.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
     "@playwright/test": "1.65.0",
     "@types/node": "24.19.2",
     "fast-check": "4.10.2",
+    "playwright": "1.65.0",
     "typescript": "6.0.3",
     "vitest": "4.1.12"
   }
